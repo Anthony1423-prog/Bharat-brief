@@ -1,1 +1,11 @@
+name = "bharat-brief-api"
+main = "src/index.js"
+compatibility_date = "2026-10-01"
 
+[[d1_databases]]
+binding = "DB"
+database_name = "bharat-brief"
+database_id = "69e1b5a7-6c62-47a4-b164-cd9d6c94dbbb"
+
+[triggers]
+crons = ["30 1 * * *", "30 7 * * *", "30 13 * * *"]
