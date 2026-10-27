@@ -70,11 +70,17 @@ async function pickModel() {
   return ms[0].name.replace(/^models\//, "");
 }
 async function gemini(prompt) {
-  const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${GEM_MODEL}:generateContent`, {
+  const call = cfg => fetch(`https://generativelanguage.googleapis.com/v1beta/models/${GEM_MODEL}:generateContent`, {
     method: "POST", headers: { "x-goog-api-key": GEM_KEY, "content-type": "application/json" }, signal: AbortSignal.timeout(40000),
-    body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }], generationConfig: { responseMimeType: "application/json", temperature: 0.2, maxOutputTokens: 900 } }) });
-  if (r.status === 429 || r.status === 403) throw Object.assign(new Error("quota or permission HTTP " + r.status), { stop: true });
-  if (r.status === 400 || r.status === 404) throw Object.assign(new Error("bad request HTTP " + r.status + " - check GEMINI_MODEL / key"), { stop: true });
+    body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }], generationConfig: cfg }) });
+  let r = await call({ responseMimeType: "application/json", temperature: 0.2, maxOutputTokens: 900 });
+  if (r.status === 400) r = await call({ maxOutputTokens: 900 }); // some models reject extra settings; the prompt already asks for JSON only
+  if (r.status === 429) throw Object.assign(new Error("quota used up (HTTP 429)"), { stop: true });
+  if (r.status === 403) throw Object.assign(new Error("permission denied (HTTP 403)"), { stop: true });
+  if (r.status === 400 || r.status === 404) {
+    const body = (await r.text()).replace(/\s+/g, " ").slice(0, 220);
+    throw Object.assign(new Error(`HTTP ${r.status} model=${GEM_MODEL} ${body}`), { stop: true });
+  }
   if (!r.ok) throw new Error("Gemini HTTP " + r.status);
   const j = await r.json();
   return (j.candidates?.[0]?.content?.parts || []).map(p => p.text || "").join("");
@@ -179,7 +185,7 @@ try {
       const ids = new Set(arts.map(a => a.id)); let done = false, why = "";
       for (let n = 0; n < 2 && !done; n++) {
         try {
-          const o = JSON.parse(await gemini(PROMPT(arts))); why = validate(o, ids);
+          const o = JSON.parse((await gemini(PROMPT(arts))).replace(/^\s*```(?:json)?\s*|\s*```\s*$/g, "")); why = validate(o, ids);
           if (!why) {
             const note = [t.uncertainty_notes, o.uncertainty_notes].filter(Boolean).join(" ");
             await q("UPDATE story_groups SET summary=?,why_it_matters=?,what_to_watch=?,uncertainty_notes=?,claims_json=?,ai_generated=1 WHERE id=?",
