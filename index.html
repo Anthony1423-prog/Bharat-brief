@@ -149,7 +149,33 @@ header.top{position:relative;overflow:hidden}
 .topic-icon{transition:transform .2s ease}
 .card:hover .topic-icon,.topic-heading:hover .topic-icon{transform:rotate(-7deg) scale(1.12)}
 @media(prefers-reduced-motion:reduce){.card,.topic-icon,.briefing-track span{transition:none}.card:hover{transform:none}}
-</style></head>
+</style><style>
+.mode-chip{border-radius:999px!important}
+.habit-stats{display:flex;align-items:center;gap:12px}
+.habit-stat{display:flex;flex-direction:column;align-items:center;min-width:52px;line-height:1.1}
+.habit-stat strong{font:800 1.05rem system-ui,sans-serif;color:var(--acc)}
+.habit-stat span,.goal-select{font:.66rem system-ui,sans-serif;color:var(--mut)}
+.goal-select{display:flex;align-items:center;gap:5px}
+.goal-select select{width:auto;padding:4px 7px;font-size:.72rem}
+.for-you-note,.completion-card,.challenge-card{padding:clamp(20px,4vw,34px);margin:18px 0;background:linear-gradient(125deg,var(--card),var(--accbg));border:1px solid var(--line);border-radius:18px}
+.for-you-note{display:flex;align-items:center;gap:15px}
+.for-you-note .topic-icon{width:32px;height:32px}
+.completion-card{text-align:center;padding:36px 20px;animation:pop-in .4s ease both}
+.completion-mark{font-size:2.3rem;color:var(--acc);margin-bottom:8px}
+.completion-card h2{font-size:1.65rem;text-transform:none;letter-spacing:-.03em;border:0;margin:0 0 8px}
+.completion-card p{color:var(--mut)}
+.completion-actions,.challenge-grid{display:flex;justify-content:center;gap:10px;flex-wrap:wrap;margin-top:18px}
+.challenge-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(175px,1fr));justify-content:stretch}
+.challenge-choice{display:flex;align-items:center;gap:10px;justify-content:flex-start;padding:14px}
+.challenge-choice .topic-icon{width:24px;height:24px}
+.challenge-kicker{font:700 .75rem system-ui,sans-serif;letter-spacing:.1em;text-transform:uppercase;color:var(--acc)}
+.challenge-card h2{border:0;text-transform:none;font-size:clamp(1.5rem,3vw,2rem)}
+.challenge-card .challenge-summary{font-size:1.05rem;line-height:1.7}
+@keyframes pop-in{from{opacity:0;transform:translateY(12px) scale(.98)}to{opacity:1;transform:translateY(0) scale(1)}}
+@media(prefers-reduced-motion:reduce){.completion-card{animation:none}}
+@media(max-width:540px){.habit-stats{grid-column:1/-1;justify-content:space-between}.briefing-progress{grid-template-columns:1fr auto}.goal-select select{font-size:.68rem}}
+</style>
+</head>
 <body>
 <div class="wrap">
 <header class="top">
@@ -163,7 +189,7 @@ header.top{position:relative;overflow:hidden}
 
 <div class="row"><div class="tabs" role="group" aria-label="Edition"></div><label class="sr" for="day">Edition date</label><select id="day" style="width:auto"><option value="">Latest edition</option></select></div>
 <div class="meta" id="status"></div>
-<section class="briefing-progress" aria-label="Edition reading progress"><div class="briefing-progress-copy">Your edition<span id="briefingProgressText">0 of 0 stories read</span></div><span class="meta" id="briefingPercent">0%</span><div class="briefing-track" role="progressbar" aria-label="Stories read" aria-valuemin="0" aria-valuemax="0" aria-valuenow="0"><span id="briefingProgressBar"></span></div></section>
+<section class="briefing-progress" aria-label="Edition reading progress"><div class="briefing-progress-copy">Your edition<span id="briefingProgressText">0 of 0 stories read</span></div><div class="habit-stats"><div class="habit-stat"><strong id="streakValue">0</strong><span>day streak</span></div><div class="habit-stat"><strong id="weekValue">0 / 5</strong><span>this week</span></div><label class="goal-select">Goal <select id="weekGoal" aria-label="Weekly study goal"><option value="3">3 days</option><option value="5" selected>5 days</option><option value="7">7 days</option></select></label></div><span class="meta" id="briefingPercent">0%</span><div class="briefing-track" role="progressbar" aria-label="Stories read" aria-valuemin="0" aria-valuemax="0" aria-valuenow="0"><span id="briefingProgressBar"></span></div></section>
 
 <div class="chips" id="chips" role="group" aria-label="Choose exam"></div>
 <details class="panel" aria-label="Filters"><summary>Search &amp; more filters</summary>
@@ -183,7 +209,7 @@ header.top{position:relative;overflow:hidden}
  <p class="meta" id="weights" style="margin:8px 0 0"></p>
 </details>
 
-<nav class="viewbar" aria-label="Reading mode"><div class="viewtabs"><button type="button" class="btn" data-view="feed" aria-pressed="true">Feed</button><button type="button" class="btn" data-view="reader" aria-pressed="false">Read stories</button><button type="button" class="btn" data-view="revise" aria-pressed="false">Revise saved</button></div><span class="viewhint" id="viewhint">Scan the edition, save stories, or switch to focused reading.</span></nav>
+<nav class="viewbar" aria-label="Reading mode"><div class="viewtabs"><button type="button" class="btn" data-view="feed" aria-pressed="true">Feed</button><button type="button" class="btn" data-view="for-you" aria-pressed="false">For you</button><button type="button" class="btn" data-view="challenge" aria-pressed="false">Topic challenge</button><button type="button" class="btn" data-view="reader" aria-pressed="false">Read stories</button><button type="button" class="btn" data-view="revise" aria-pressed="false">Revise saved</button></div><span class="viewhint" id="viewhint">Scan the edition, save stories, or switch to focused reading.</span></nav>
 <section class="panel top3" aria-labelledby="t3"><h2 id="t3" style="margin-top:0">Top developments</h2><ol id="top"></ol></section>
 <main id="list"></main>
 
@@ -233,13 +259,20 @@ async function load(){
  render();
 }
 // ---------- STATE ----------
-let readerIndex=0,revRevealed=false,swipeX=null,currentDeck=[];
-const P={view:"feed",done:[],read:[],day:"",exam:"general",state:"Bihar",topic:"all",imp:"0",q:"",saved:[],cache:{},theme:"auto",ed:null};
+let readerIndex=0,revRevealed=false,swipeX=null,currentDeck=[],challengeIndex=0;
+const P={view:"feed",done:[],read:[],studyDays:[],weekGoal:5,challengeTopic:"",day:"",exam:"general",state:"Bihar",topic:"all",imp:"0",q:"",saved:[],cache:{},theme:"auto",ed:null};
 const KEY="bharatbrief.v1";
 try{Object.assign(P,JSON.parse(localStorage.getItem(KEY)||"{}"))}catch(e){}
 const store=()=>{try{localStorage.setItem(KEY,JSON.stringify(P))}catch(e){}};
 const $=s=>document.querySelector(s);
 const esc=s=>String(s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+function todayIST(){const p=new Intl.DateTimeFormat("en-CA",{timeZone:"Asia/Kolkata",year:"numeric",month:"2-digit",day:"2-digit"}).formatToParts(new Date());const o=Object.fromEntries(p.map(x=>[x.type,x.value]));return o.year+"-"+o.month+"-"+o.day}
+function shiftDate(key,n){const [y,m,d]=key.split("-").map(Number),v=new Date(Date.UTC(y,m-1,d+n));return v.toISOString().slice(0,10)}
+function recordStudy(){const d=todayIST();if(!P.studyDays.includes(d))P.studyDays.push(d)}
+function streakCount(){const days=new Set(P.studyDays||[]),today=todayIST();let cursor=days.has(today)?today:shiftDate(today,-1),n=0;while(days.has(cursor)){n++;cursor=shiftDate(cursor,-1)}return n}
+function weekCount(){const today=todayIST(),[y,m,d]=today.split("-").map(Number),day=(new Date(Date.UTC(y,m-1,d)).getUTCDay()+6)%7,start=shiftDate(today,-day);return (P.studyDays||[]).filter(x=>x>=start&&x<=today).length}
+function examFit(s){let n=(W[P.exam]||{})[s.topic]??3;if(P.exam==="bpsc"&&s.state==="Bihar")n=5;if(P.exam==="spsc"&&s.state===P.state)n=5;return n}
+function personalPriority(s){return (s.imp??3)*.45+examFit(s)*.55}
 // ---------- SCORING (explainable) ----------
 function score(s){
  const [impact,novelty,source,urgency]=s.sc||[0,0,0,0];
@@ -261,7 +294,7 @@ function init(){
  opts($("#exam"),EXAMS,P.exam);
  $("#state").innerHTML=STATES.map(s=>`<option${s===P.state?" selected":""}>${esc(s)}</option>`).join("");
  opts($("#topic"),{all:"All topics",...TOPICS},P.topic);
- $("#imp").value=P.imp;$("#q").value=P.q;
+ $("#imp").value=P.imp;$("#q").value=P.q;$("#weekGoal").value=String(P.weekGoal||5);$("#weekGoal").onchange=e=>{P.weekGoal=+e.target.value;store();render()};
  P.ed=P.ed||defaultEd();P.day="";
  const t=$(".tabs");t.innerHTML=EDITIONS.map(e=>`<button data-k="${e.k}" aria-pressed="false">${e.n} · ${e.t}</button>`).join("");
  t.onclick=e=>{const b=e.target.closest("button");if(b){P.ed=b.dataset.k;store();load()}};
@@ -272,7 +305,7 @@ function init(){
  $("#clear").onclick=()=>{if(confirm("Clear saved stories and preferences on this device?")){try{localStorage.removeItem(KEY)}catch(e){}location.reload()}};
  $("#theme").onclick=()=>{P.theme={auto:"light",light:"dark",dark:"auto"}[P.theme];store();applyTheme()};
  $(".viewtabs").onclick=e=>{const b=e.target.closest("[data-view]");if(!b)return;P.view=b.dataset.view;readerIndex=0;revRevealed=false;store();render()};
- $("#list").onclick=e=>{const b=e.target.closest("[data-a]");if(!b)return;const a=b.dataset.a,id=b.dataset.id;if(a==="open")openStory(id);if(a==="save")toggle(id);if(a==="read")toggleRead(id);if(a==="share")share(id);if(a==="prev"){readerIndex=Math.max(0,readerIndex-1);render()}if(a==="next"){readerIndex=Math.min(currentDeck.length-1,readerIndex+1);render()}if(a==="reveal"){revRevealed=true;render()}if(a==="got"){if(!P.done.includes(id))P.done.push(id);if(!P.read.includes(id))P.read.push(id);readerIndex=0;revRevealed=false;store();render()}if(a==="reset"){P.done=[];readerIndex=0;revRevealed=false;store();render()}};
+ $("#list").onclick=e=>{const b=e.target.closest("[data-a]");if(!b)return;const a=b.dataset.a,id=b.dataset.id;if(a==="open")openStory(id);if(a==="save")toggle(id);if(a==="read")toggleRead(id);if(a==="share")share(id);if(a==="finish-revise"){P.view="revise";readerIndex=0;store();render()}if(a==="restart-edition"){const ids=new Set(editionIds);P.read=P.read.filter(x=>!ids.has(x));P.view="feed";readerIndex=0;store();render()}if(a==="challenge-topic"){P.challengeTopic=id;P.topic="all";P.imp="0";P.q="";$("#topic").value="all";$("#imp").value="0";$("#q").value="";$("#savedOnly").checked=false;challengeIndex=0;store();render()}if(a==="challenge-next"){if(id&&!P.read.includes(id))P.read.push(id);recordStudy();challengeIndex++;store();render()}if(a==="challenge-back"){P.challengeTopic="";challengeIndex=0;store();render()}if(a==="prev"){readerIndex=Math.max(0,readerIndex-1);render()}if(a==="next"){readerIndex=Math.min(currentDeck.length-1,readerIndex+1);render()}if(a==="reveal"){revRevealed=true;render()}if(a==="got"){if(!P.done.includes(id))P.done.push(id);if(!P.read.includes(id))P.read.push(id);recordStudy();readerIndex=0;revRevealed=false;store();render()}if(a==="reset"){P.done=[];readerIndex=0;revRevealed=false;store();render()}};
  $("#list").addEventListener("touchstart",e=>{swipeX=e.changedTouches[0].clientX},{passive:true});
  $("#list").addEventListener("touchend",e=>{if(P.view!=="reader"||swipeX===null)return;const dx=e.changedTouches[0].clientX-swipeX;swipeX=null;if(Math.abs(dx)<55)return;readerIndex=Math.max(0,Math.min(currentDeck.length-1,readerIndex+(dx<0?1:-1)));render()},{passive:true});
  $("#top").onclick=e=>{const a=e.target.closest("a");if(a)openStory(a.dataset.id)};
@@ -280,7 +313,7 @@ function init(){
  applyTheme();load();loadDays();setInterval(()=>$("#now").textContent=istNow(),30000);
 }
 function applyTheme(){const r=document.documentElement;P.theme==="auto"?r.removeAttribute("data-theme"):r.setAttribute("data-theme",P.theme);$("#theme").textContent="Theme: "+P.theme}
-function toggleRead(id){const i=P.read.indexOf(id);if(i>=0)P.read.splice(i,1);else P.read.push(id);store();render()}
+function toggleRead(id){const i=P.read.indexOf(id);if(i>=0)P.read.splice(i,1);else{P.read.push(id);recordStudy()}store();render()}
 function toggle(id){const i=P.saved.indexOf(id);if(i>=0){P.saved.splice(i,1);delete P.cache[id]}else{P.saved.push(id);const s=findS(id);if(s)P.cache[id]=s}store();render();if($("#dlg").open)fillSave(id)}
 async function share(id){const s=findS(id),txt=s.title+(s.live?"":" (sample content)");try{if(navigator.share)await navigator.share({title:s.title,text:txt,url:location.href});else{await navigator.clipboard.writeText(txt+" "+location.href);alert("Link copied.")}}catch(e){}}
 function topicIcon(k){
@@ -297,7 +330,7 @@ function topicIcon(k){
  }[k]||'<circle cx="12" cy="12" r="8"/><path d="M12 11v5m0-8h.01"/>';
  return '<span class="topic-icon" aria-hidden="true"><svg viewBox="0 0 24 24">'+d+'</svg></span>';
 }
-function card(s){const r=s.r;return`<article class="card ${r.label}"><div class="tags"><span class="tag topic-tag">${topicIcon(s.topic)}${esc(TOPICS[s.topic])}</span><span class="tag ${r.label}">Importance: ${r.label}</span><span class="tag ev ${s.status}">${s.status}</span>${s.ai?'<span class="tag">AI summary</span>':""}</div>
+function card(s){const r=s.r;return`<article class="card ${r.label}"><div class="tags"><span class="tag topic-tag">${topicIcon(s.topic)}${esc(TOPICS[s.topic])}${P.view==="for-you"?' <span>Exam fit: '+examFit(s)+"/5</span>":""}</span><span class="tag ${r.label}">Importance: ${r.label}</span><span class="tag ev ${s.status}">${s.status}</span>${s.ai?'<span class="tag">AI summary</span>':""}</div>
 <h3>${esc(s.title)}</h3><p>${esc(s.summary)}</p>
 <div class="actions"><button class="btn" data-a="open" data-id="${s.id}">Details &amp; sources</button><button class="btn" data-a="save" data-id="${s.id}" aria-pressed="${P.saved.includes(s.id)}">${P.saved.includes(s.id)?"★ Saved":"☆ Save"}</button><button class="btn read-button" data-a="read" data-id="${s.id}" aria-pressed="${P.read.includes(s.id)}">${P.read.includes(s.id)?"✓ Read":"Mark as read"}</button><button class="btn" data-a="share" data-id="${s.id}">Share</button></div></article>`}
 function render(){
@@ -313,18 +346,42 @@ function render(){
  const so=$("#savedOnly").checked||P.view==="revise",q=P.q.trim().toLowerCase();
  let L=(so?Object.values(P.cache):DATA).filter(s=>so||s.ed===P.ed).map(s=>({...s,r:score(s)}))
   .filter(s=>(P.topic==="all"||s.topic===P.topic)&&s.r.total>=+P.imp&&(!q||(s.title+s.summary).toLowerCase().includes(q)))
-  .sort((a,b)=>b.r.total-a.r.total);
+  .sort((a,b)=>P.view==="for-you"?personalPriority(b)-personalPriority(a):b.r.total-a.r.total);
  $("#count").textContent=L.length+" "+(L.length===1?"story":"stories");
  const editionStories=DATA.filter(s=>s.ed===P.ed),readCount=editionStories.filter(s=>P.read.includes(s.id)).length,total=editionStories.length,pct=total?Math.round(readCount/total*100):0;
  $("#briefingProgressText").textContent=readCount+" of "+total+" "+(total===1?"story":"stories")+" read";
  $("#briefingPercent").textContent=pct+"%";
  const progress=$("#briefingProgressBar").parentElement;progress.setAttribute("aria-valuemax",String(total));progress.setAttribute("aria-valuenow",String(readCount));
  $("#briefingProgressBar").style.width=pct+"%";
+ $("#streakValue").textContent=String(streakCount());$("#weekValue").textContent=weekCount()+" / "+P.weekGoal;
  document.querySelectorAll(".viewtabs [data-view]").forEach(b=>b.setAttribute("aria-pressed",b.dataset.view===P.view));
- $("#viewhint").textContent=P.view==="reader"?"Swipe on a phone or use Previous and Next. Your filters still shape this deck.":P.view==="revise"?"Flashcards use stories saved on this device. Progress stays in this browser.":"Scan the edition, save stories, or switch to focused reading.";
- $("#top").parentElement.hidden=P.view!=="feed";
+ $("#viewhint").textContent=P.view==="reader"?"Swipe on a phone or use Previous and Next. Your filters still shape this deck.":P.view==="revise"?"Flashcards use stories saved on this device. Progress stays in this browser.":P.view==="for-you"?"Sorted for "+EXAMS[P.exam]+" using syllabus fit and story importance.":P.view==="challenge"?"Choose a topic and finish a short story round.": "Scan the edition, save stories, or switch to focused reading.";
+ const editionIds=editionStories.map(s=>s.id),editionComplete=total>0&&readCount===total;
+ $("#top").parentElement.hidden=P.view!=="feed"||editionComplete;
  currentDeck=L;
  $("#top").innerHTML=L.slice(0,3).map(s=>`<li><a href="#" data-id="${s.id}" onclick="return false">${esc(s.title)}</a> <span class="meta">(${s.r.label})</span></li>`).join("")||`<li class="meta">Nothing to show.</li>`;
+ if(P.view==="challenge"){
+   if(!P.challengeTopic){
+    const available=Object.keys(TOPICS).filter(k=>L.some(s=>s.topic===k));
+    $("#list").innerHTML=`<section class="challenge-card"><p class="challenge-kicker">Choose your round</p><h2>Pick a topic challenge</h2><p class="meta">Choose a topic for a short, focused round. Mark each story read to complete the challenge and build your study streak.</p><div class="challenge-grid">${available.map(k=>`<button class="btn challenge-choice" data-a="challenge-topic" data-id="${k}">${topicIcon(k)}<span>${esc(TOPICS[k])}<small class="meta" style="display:block">${L.filter(s=>s.topic===k).length} stories</small></span></button>`).join("")}</div></section>`;
+    return;
+   }
+   const challengeStories=L.filter(s=>s.topic===P.challengeTopic);
+   if(!challengeStories.length){$("#list").innerHTML=`<section class="challenge-card"><p>No stories for this topic match the current edition.</p><button class="btn" data-a="challenge-back">Choose another topic</button></section>`;return}
+   if(challengeIndex>=challengeStories.length){$("#list").innerHTML=`<section class="completion-card"><div class="completion-mark">✦</div><p class="challenge-kicker">Topic challenge complete</p><h2>${esc(TOPICS[P.challengeTopic])} done!</h2><p>You finished ${challengeStories.length} stories. Your weekly goal is ${weekCount()} of ${P.weekGoal} study days.</p><div class="completion-actions"><button class="btn" data-a="challenge-back">Choose another topic</button><button class="btn" data-a="finish-revise">Revise saved stories</button></div></section>`;return}
+   const s=challengeStories[challengeIndex];
+   $("#list").innerHTML=`<section class="challenge-card"><p class="challenge-kicker">${esc(TOPICS[P.challengeTopic])} challenge · ${challengeIndex+1} / ${challengeStories.length}</p><div class="reader-progress"><span style="width:${((challengeIndex+1)/challengeStories.length)*100}%"></span></div><h2>${esc(s.title)}</h2><p class="challenge-summary">${esc(s.summary)}</p><p class="meta">${esc(s.why||"")}</p><div class="actions"><button class="btn" data-a="open" data-id="${s.id}">Full brief &amp; sources</button><button class="btn" data-a="challenge-back">Change topic</button><button class="btn" data-a="challenge-next" data-id="${s.id}">Mark read &amp; next →</button></div></section>`;
+   return;
+ }
+ if(editionComplete&&P.view!=="revise"){
+   $("#list").innerHTML=`<section class="completion-card"><div class="completion-mark">✦</div><p class="challenge-kicker">Edition complete</p><h2>You’re all caught up!</h2><p>You read all ${total} stories in this edition. You’re on a ${streakCount()} day streak, with ${weekCount()} of ${P.weekGoal} study days toward your weekly goal.</p><div class="completion-actions"><button class="btn" data-a="finish-revise">Revise saved stories</button><button class="btn" data-a="restart-edition">Read the edition again</button></div></section>`;
+   return;
+ }
+ if(P.view==="for-you"&&L.length){
+   const fit=L[0];
+   $("#list").innerHTML=`<section class="for-you-note">${topicIcon(fit.topic)}<div><strong>Picked for ${esc(EXAMS[P.exam])}</strong><div class="meta">Ranked by syllabus fit and story importance. Highest match: ${esc(TOPICS[fit.topic])} · ${examFit(fit)}/5 exam fit.</div></div></section><div class="cards">${L.map(card).join("")}</div>`;
+   return;
+ }
  if(P.view==="reader"&&L.length){
    readerIndex=Math.max(0,Math.min(readerIndex,L.length-1));const s=L[readerIndex];
    $("#list").innerHTML=`<div class="reader-progress" aria-label="Reading progress"><span style="width:${((readerIndex+1)/L.length)*100}%"></span></div><article class="card reader-card ${s.r.label}"><div class="tags"><span class="tag">${esc(TOPICS[s.topic])}</span><span class="tag ${s.r.label}">${s.r.label} importance</span><span class="tag ev ${s.status}">${s.status}</span></div><p class="reader-count">STORY ${readerIndex+1} OF ${L.length}</p><h3>${esc(s.title)}</h3><p class="reader-summary">${esc(s.summary)}</p><p class="meta">${esc(s.why||"")}</p><div class="actions"><button class="btn" data-a="open" data-id="${s.id}">Full brief &amp; sources</button><button class="btn" data-a="save" data-id="${s.id}">${P.saved.includes(s.id)?"★ Saved":"☆ Save"}</button><button class="btn read-button" data-a="read" data-id="${s.id}" aria-pressed="${P.read.includes(s.id)}">${P.read.includes(s.id)?"✓ Read":"Mark as read"}</button></div></article><div class="reader-nav"><button class="btn" data-a="prev" ${readerIndex===0?"disabled":""}>← Previous</button><span class="reader-count">${readerIndex+1} / ${L.length}</span><button class="btn" data-a="next" ${readerIndex===L.length-1?"disabled":""}>Next →</button></div>`;
@@ -335,7 +392,7 @@ function render(){
    $("#list").innerHTML=pending.length?`<article class="card revise-card"><div class="tags"><span class="tag">REVISION ${readerIndex+1} / ${pending.length}</span><span class="tag">${esc(TOPICS[s.topic])}</span></div><div class="revise-front"><p class="meta">What was the key development?</p><h3>${esc(s.title)}</h3>${revRevealed?`<div><h4>Brief</h4><p>${esc(s.summary)}</p><h4>Exam connection</h4><p>${esc(s.live?"Topic: "+TOPICS[s.topic]+". "+(s.why||""):s.note)}</p></div><div class="revise-actions"><button class="btn" data-a="got" data-id="${s.id}">Got it ✓</button><button class="btn" data-a="reveal">Review again</button><button class="btn" data-a="open" data-id="${s.id}">Sources</button></div>`:`<button class="btn" data-a="reveal">Reveal brief</button>`}</div></article>`: `<div class="empty">You’ve reviewed all saved stories in this session.<p><button class="btn" data-a="reset">Start revision again</button></p></div>`;
    return;
  }
- if(!L.length){if(P.view==="revise"){$("#list").innerHTML=`<div class="empty">Save stories from the feed, then come back here to revise them.</div>`;return} $("#list").innerHTML=`<div class="empty">${so?"No saved stories yet.":MODE==="loading"?"Loading edition…":MODE==="empty"?"Nothing published for this slot yet.":"No major update matches these filters in this edition."}</div>`;return}
+ if(!L.length){if(P.view==="challenge"){ $("#list").innerHTML=`<div class="empty">No stories in this edition to challenge yourself with yet.</div>`;return} if(P.view==="revise"){$("#list").innerHTML=`<div class="empty">Save stories from the feed, then come back here to revise them.</div>`;return} $("#list").innerHTML=`<div class="empty">${so?"No saved stories yet.":MODE==="loading"?"Loading edition…":MODE==="empty"?"Nothing published for this slot yet.":"No major update matches these filters in this edition."}</div>`;return}
  $("#list").innerHTML=Object.keys(TOPICS).filter(k=>L.some(s=>s.topic===k)).map(k=>`<h2 class="topic-heading">${topicIcon(k)}${esc(TOPICS[k])}</h2><div class="cards">${L.filter(s=>s.topic===k).map(card).join("")}</div>`).join("");
 }
 function fillSave(id){const b=$("#dsave");b.textContent=P.saved.includes(id)?"★ Saved":"☆ Save";b.onclick=()=>toggle(id)}
