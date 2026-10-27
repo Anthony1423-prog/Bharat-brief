@@ -87,7 +87,7 @@ h2{font-size:.95rem;text-transform:uppercase;letter-spacing:.06em;color:var(--ac
   <button class="btn" id="theme" style="margin-top:6px">Theme: auto</button></div>
 </header>
 
-<div class="banner" role="status"><strong>Sample stories only — not real news.</strong> Live news comes in later phases.</div>
+<div class="banner" id="banner" role="status">Loading the latest edition…</div>
 
 <div class="tabs" role="group" aria-label="Edition"></div>
 <div class="meta" id="status"></div>
@@ -130,7 +130,7 @@ const SHARE=.2, LABELS=[[3.6,"High"],[2.8,"Medium"],[0,"Low"]];
 // ---------- SAMPLE DATA (all fictional placeholders) ----------
 const S=(id,ed,topic,geo,state,status,title,summary,why,watch,note,sc)=>({id,ed,topic,geo,state,status,title,summary,why,watch,note,sc,srcs:[{n:"Sample Source A (placeholder)",d:"sample date"},{n:"Sample Source B (placeholder)",d:"sample date"}]});
 const NONEXT="No clear next step is reported yet.";
-const DATA=[
+const SAMPLE=[
 S("s1","m","polity","India","","Confirmed","SAMPLE: Constitution bench reserves verdict on a federalism question","A made-up example of a court reserving judgment on a Centre–state powers case.","Shows how a ruling could shape Centre–state relations and legislative competence.","Judgment date has not been announced in this sample.","Federalism, judiciary and Seventh Schedule topics appear in GS Polity.",[5,3,5,3]),
 S("s2","m","econ","India","","Developing","SAMPLE: Central bank holds policy rate in a hypothetical review","Placeholder story about a rate decision with a split committee vote.","Policy rate affects loan costs, inflation and growth.","Next review date and inflation data would be the cues.","Monetary policy, repo rate and MPC are core Banking and Economy topics.",[4,2,4,4]),
 S("s3","m","states","India","Bihar","Confirmed","SAMPLE: Bihar unveils a flood-preparedness plan (fictional)","Invented state plan covering early warning and relief logistics.","Illustrates how state disaster governance is reported and ranked for BPSC.","Implementation timeline is not stated in this sample.","State disaster management and Bihar geography are frequent BPSC themes.",[4,4,3,4]),
@@ -141,8 +141,21 @@ S("s7","e","env","India","","Analysis","SAMPLE: Analysis — heatwave advisories
 S("s8","e","econ","India","","Confirmed","SAMPLE: Hypothetical trade data shows a rise in exports","Made-up monthly figures from a primary-style source.","Trade balance affects currency and growth outlook.","Next monthly release would show whether the trend holds.","Trade data and balance of payments suit Banking and SSC.",[3,3,5,2]),
 S("s9","e","states","India","Kerala","Developing","SAMPLE: Kerala considers a hypothetical local-governance reform","Placeholder: early report of a proposal, details pending.","Shows state-level stories shown to State PSC readers by state.","Draft publication not confirmed in this sample.","Panchayati Raj and local bodies are State PSC staples.",[3,4,2,3])
 ];
+let DATA=SAMPLE,MODE="loading",META=null,TOK=0;
+const API="https://bharat-brief-api.purushottampriyadarshi0.workers.dev";
+const cap=x=>({confirmed:"Confirmed",developing:"Developing",allegation:"Allegation",analysis:"Analysis"}[x]||"Developing");
+const fmtIST=i=>i?new Date(i).toLocaleString("en-IN",{timeZone:"Asia/Kolkata",day:"numeric",month:"short",hour:"numeric",minute:"2-digit",hour12:true})+" IST":"n/a";
+const mapLive=j=>j.stories.map(g=>({id:g.id,ed:P.ed,live:true,topic:TOPICS[g.topic]?g.topic:"other",geo:g.geography||"",state:g.state||"",status:cap(g.evidence_status),title:g.headline,summary:g.summary||"No summary available. See the linked sources.",why:g.why_it_matters,watch:g.what_to_watch,note:g.uncertainty_notes||"",imp:g.importance||0,rr:g.importance_reason||"single report",evd:g.event_date,upd:g.updated_at,srcs:(g.sources||[]).filter(x=>/^https?:\/\//.test(x.url)).map(x=>({n:x.source,t:x.title,u:x.url,d:fmtIST(x.published_at)}))}));
+const findS=id=>DATA.find(x=>x.id===id)||P.cache[id];
+async function load(){
+ const tk=++TOK;MODE="loading";META=null;DATA=[];render();
+ try{const r=await fetch(API+"/api/editions/latest?slot="+P.ed);if(!r.ok)throw 0;const j=await r.json();
+  if(tk!==TOK)return;if(j.edition){MODE="live";META=j;DATA=mapLive(j)}else{MODE="empty";DATA=[]}}
+ catch(e){if(tk!==TOK)return;MODE="sample";DATA=SAMPLE}
+ render();
+}
 // ---------- STATE ----------
-const P={exam:"general",state:"Bihar",topic:"all",imp:"0",q:"",saved:[],theme:"auto",ed:null};
+const P={exam:"general",state:"Bihar",topic:"all",imp:"0",q:"",saved:[],cache:{},theme:"auto",ed:null};
 const KEY="bharatbrief.v1";
 try{Object.assign(P,JSON.parse(localStorage.getItem(KEY)||"{}"))}catch(e){}
 const store=()=>{try{localStorage.setItem(KEY,JSON.stringify(P))}catch(e){}};
@@ -150,15 +163,15 @@ const $=s=>document.querySelector(s);
 const esc=s=>String(s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 // ---------- SCORING (explainable) ----------
 function score(s){
- const [impact,novelty,source,urgency]=s.sc;
+ const [impact,novelty,source,urgency]=s.sc||[0,0,0,0];
  let rel=(W[P.exam]||{})[s.topic]??3, boost="";
  if(P.exam==="bpsc"&&s.state==="Bihar"){rel=5;boost=" Bihar affairs get extra weight for BPSC."}
  if(P.exam==="spsc"&&s.state===P.state){rel=5;boost=" Matches your selected state."}
- const total=impact*.3+novelty*.2+source*.15+urgency*.15+rel*.2;
+ const total=s.imp!=null?s.imp*.8+rel*.2:impact*.3+novelty*.2+source*.15+urgency*.15+rel*.2;
  const parts=[["public impact",impact],["novelty",novelty],["source strength",source],["urgency",urgency],["exam relevance",rel]].sort((a,b)=>b[1]-a[1]);
  const label=LABELS.find(l=>total>=l[0])[1];
  const strong=parts.filter(p=>p[1]>=4).slice(0,2).map(p=>p[0]);
- const reason=(strong.length?"Strong on "+strong.join(" and ")+".":"No single factor is strong.")+boost;
+ const reason=(s.imp!=null?"Ranking basis: "+s.rr+".":(strong.length?"Strong on "+strong.join(" and ")+".":"No single factor is strong."))+boost;
  return{total,label,reason};
 }
 // ---------- RENDER ----------
@@ -172,7 +185,7 @@ function init(){
  $("#imp").value=P.imp;$("#q").value=P.q;
  P.ed=P.ed||defaultEd();
  const t=$(".tabs");t.innerHTML=EDITIONS.map(e=>`<button data-k="${e.k}" aria-pressed="false">${e.n} · ${e.t}</button>`).join("");
- t.onclick=e=>{const b=e.target.closest("button");if(b){P.ed=b.dataset.k;store();render()}};
+ t.onclick=e=>{const b=e.target.closest("button");if(b){P.ed=b.dataset.k;store();load()}};
  [["exam","exam"],["state","state"],["topic","topic"],["imp","imp"]].forEach(([id,k])=>$("#"+id).onchange=e=>{P[k]=e.target.value;store();render()});
  $("#q").oninput=e=>{P.q=e.target.value;render()};
  $("#savedOnly").onchange=render;
@@ -181,11 +194,11 @@ function init(){
  $("#list").onclick=e=>{const b=e.target.closest("[data-a]");if(!b)return;const id=b.dataset.id;if(b.dataset.a==="open")openStory(id);if(b.dataset.a==="save")toggle(id);if(b.dataset.a==="share")share(id)};
  $("#top").onclick=e=>{const a=e.target.closest("a");if(a)openStory(a.dataset.id)};
  $("#dclose").onclick=()=>$("#dlg").close();
- applyTheme();render();setInterval(()=>$("#now").textContent=istNow(),30000);
+ applyTheme();load();setInterval(()=>$("#now").textContent=istNow(),30000);
 }
 function applyTheme(){const r=document.documentElement;P.theme==="auto"?r.removeAttribute("data-theme"):r.setAttribute("data-theme",P.theme);$("#theme").textContent="Theme: "+P.theme}
-function toggle(id){const i=P.saved.indexOf(id);i>=0?P.saved.splice(i,1):P.saved.push(id);store();render();if($("#dlg").open)fillSave(id)}
-async function share(id){const s=DATA.find(x=>x.id===id),txt=s.title+" (sample content)";try{if(navigator.share)await navigator.share({title:s.title,text:txt,url:location.href});else{await navigator.clipboard.writeText(txt+" "+location.href);alert("Link copied.")}}catch(e){}}
+function toggle(id){const i=P.saved.indexOf(id);if(i>=0){P.saved.splice(i,1);delete P.cache[id]}else{P.saved.push(id);const s=findS(id);if(s)P.cache[id]=s}store();render();if($("#dlg").open)fillSave(id)}
+async function share(id){const s=findS(id),txt=s.title+(s.live?"":" (sample content)");try{if(navigator.share)await navigator.share({title:s.title,text:txt,url:location.href});else{await navigator.clipboard.writeText(txt+" "+location.href);alert("Link copied.")}}catch(e){}}
 function card(s){const r=s.r;return`<article class="card ${r.label}"><div class="tags"><span class="tag">${esc(TOPICS[s.topic])}</span><span class="tag ${r.label}">Importance: ${r.label}</span><span class="tag ev ${s.status}">${s.status}</span></div>
 <h3>${esc(s.title)}</h3><p>${esc(s.summary)}</p>
 <div class="actions"><button class="btn" data-a="open" data-id="${s.id}">Details &amp; sources</button><button class="btn" data-a="save" data-id="${s.id}" aria-pressed="${P.saved.includes(s.id)}">${P.saved.includes(s.id)?"★ Saved":"☆ Save"}</button><button class="btn" data-a="share" data-id="${s.id}">Share</button></div></article>`}
@@ -197,24 +210,25 @@ function render(){
  $("#weights").textContent=P.exam==="general"?"General mode: all topics weighted equally for exam relevance.":"Exam relevance for "+EXAMS[P.exam]+" is a configurable topic weighting, not a prediction of questions.";
  document.querySelectorAll(".tabs button").forEach(b=>b.setAttribute("aria-pressed",b.dataset.k===P.ed));
  const ed=EDITIONS.find(e=>e.k===P.ed);
- $("#status").textContent=ed.n+" edition · "+ed.t+" IST · sample stories";
+ $("#status").textContent=MODE==="live"?ed.n+" edition · "+META.edition.edition_date+" · published "+fmtIST(META.edition.published_at)+(META.job?" · "+META.job.sources_ok+" of "+(META.job.sources_ok+META.job.sources_failed)+" sources read in last run":""):MODE==="sample"?ed.n+" edition · sample stories":MODE==="loading"?"Loading…":ed.n+" edition · not published yet";
+ $("#banner").innerHTML=MODE==="live"?"<strong>Live edition.</strong> Headlines and links are collected automatically from the listed sources and are not independently verified. Read the originals.":MODE==="sample"?"<strong>Live data unavailable. Showing sample stories only, not real news.</strong>":MODE==="empty"?"<strong>No edition has been published for this slot yet.</strong> Editions appear after each scheduled run.":"Loading the latest edition…";
  const so=$("#savedOnly").checked,q=P.q.trim().toLowerCase();
- let L=DATA.filter(s=>so?P.saved.includes(s.id):s.ed===P.ed).map(s=>({...s,r:score(s)}))
+ let L=(so?Object.values(P.cache):DATA).filter(s=>so||s.ed===P.ed).map(s=>({...s,r:score(s)}))
   .filter(s=>(P.topic==="all"||s.topic===P.topic)&&s.r.total>=+P.imp&&(!q||(s.title+s.summary).toLowerCase().includes(q)))
   .sort((a,b)=>b.r.total-a.r.total);
  $("#count").textContent=L.length+" "+(L.length===1?"story":"stories");
  $("#top").innerHTML=L.slice(0,3).map(s=>`<li><a href="#" data-id="${s.id}" onclick="return false">${esc(s.title)}</a> <span class="meta">(${s.r.label})</span></li>`).join("")||`<li class="meta">Nothing to show.</li>`;
- if(!L.length){$("#list").innerHTML=`<div class="empty">${so?"No saved stories yet.":"No major update matches these filters in this edition."}</div>`;return}
+ if(!L.length){$("#list").innerHTML=`<div class="empty">${so?"No saved stories yet.":MODE==="loading"?"Loading edition…":MODE==="empty"?"Nothing published for this slot yet.":"No major update matches these filters in this edition."}</div>`;return}
  $("#list").innerHTML=Object.keys(TOPICS).filter(k=>L.some(s=>s.topic===k)).map(k=>`<h2>${esc(TOPICS[k])}</h2><div class="cards">${L.filter(s=>s.topic===k).map(card).join("")}</div>`).join("");
 }
 function fillSave(id){const b=$("#dsave");b.textContent=P.saved.includes(id)?"★ Saved":"☆ Save";b.onclick=()=>toggle(id)}
 function openStory(id){
- const s=DATA.find(x=>x.id===id),r=score(s);
- $("#dbody").innerHTML=`<div class="tags"><span class="tag">${esc(TOPICS[s.topic])}</span><span class="tag">${esc(s.state||s.geo)}</span><span class="tag ${r.label}">Importance: ${r.label}</span><span class="tag ev ${s.status}">${s.status}</span><span class="tag">SAMPLE</span></div>
-<h3 id="dt">${esc(s.title)}</h3><p class="meta">Event date: sample (not real) · Published/updated: sample (not real)</p>
-<h4>Summary</h4><p>${esc(s.summary)}</p><h4>Why it matters</h4><p>${esc(s.why)}</p><h4>What to watch next</h4><p>${esc(s.watch)}</p>
+ const s=findS(id),r=score(s);
+ $("#dbody").innerHTML=`<div class="tags"><span class="tag">${esc(TOPICS[s.topic])}</span><span class="tag">${esc(s.state||s.geo)}</span><span class="tag ${r.label}">Importance: ${r.label}</span><span class="tag ev ${s.status}">${s.status}</span>${s.live?"":'<span class="tag">SAMPLE</span>'}</div>
+<h3 id="dt">${esc(s.title)}</h3><p class="meta">${s.live?"Event date: "+esc(s.evd||"not stated")+" · Last updated: "+esc(fmtIST(s.upd)):"Event date: sample (not real) · Published/updated: sample (not real)"}</p>
+<h4>Summary</h4><p>${esc(s.summary)}</p><h4>Why it matters</h4><p>${esc(s.why||"Not available yet. AI summaries are switched off.")}</p><h4>What to watch next</h4><p>${esc(s.watch||"No clear next step is reported yet.")}</p>
 <h4>Why this importance</h4><p>${esc(r.reason)} Score ${r.total.toFixed(1)}/5 (impact, novelty, source strength, urgency, exam relevance).</p>
-<h4>Exam note</h4><p>${esc(s.note)}</p><h4>Sources</h4>${s.srcs.map(x=>`<p class="src">${esc(x.n)} — ${esc(x.d)} · <em>placeholder, no real link</em></p>`).join("")}`;
+<h4>Exam note</h4><p>${esc(s.live?"Topic: "+TOPICS[s.topic]+". Exam relevance is a topic weighting, not a prediction of questions.":s.note)}</p><h4>Evidence note</h4><p>${esc(s.live?s.note:"Sample.")}</p><h4>Sources</h4>${s.srcs.map(x=>x.u?`<p class="src"><a href="${esc(x.u)}" target="_blank" rel="noopener noreferrer">${esc(x.t||x.n)}</a><br><span class="meta">${esc(x.n)} · ${esc(x.d)}</span></p>`:`<p class="src">${esc(x.n)} — ${esc(x.d)} · <em>placeholder, no real link</em></p>`).join("")}`;
  $("#dshare").onclick=()=>share(id);fillSave(id);$("#dlg").showModal();
 }
 init();
