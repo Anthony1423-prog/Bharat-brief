@@ -73,9 +73,14 @@ async function gemini(prompt) {
   const call = cfg => fetch(`https://generativelanguage.googleapis.com/v1beta/models/${GEM_MODEL}:generateContent`, {
     method: "POST", headers: { "x-goog-api-key": GEM_KEY, "content-type": "application/json" }, signal: AbortSignal.timeout(40000),
     body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }], generationConfig: cfg }) });
-  let r = await call({ responseMimeType: "application/json", temperature: 0.2, maxOutputTokens: 900 });
-  if (r.status === 400) r = await call({ maxOutputTokens: 900 }); // some models reject extra settings; the prompt already asks for JSON only
-  if (r.status === 429) throw Object.assign(new Error("quota used up (HTTP 429)"), { stop: true });
+  let r = await call({ responseMimeType: "application/json", temperature: 0.2, maxOutputTokens: 2048 });
+  if (r.status === 400) r = await call({ maxOutputTokens: 2048 }); // some models reject extra settings; the prompt already asks for JSON only
+  if (r.status === 429) { // may be a per-minute limit: wait once, then retry
+    await sleep(65000);
+    r = await call({ responseMimeType: "application/json", temperature: 0.2, maxOutputTokens: 2048 });
+    if (r.status === 400) r = await call({ maxOutputTokens: 2048 });
+  }
+  if (r.status === 429) throw Object.assign(new Error("quota used up (HTTP 429) model=" + GEM_MODEL), { stop: true });
   if (r.status === 403) throw Object.assign(new Error("permission denied (HTTP 403)"), { stop: true });
   if (r.status === 400 || r.status === 404) {
     const body = (await r.text()).replace(/\s+/g, " ").slice(0, 220);
