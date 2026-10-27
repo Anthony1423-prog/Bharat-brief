@@ -57,19 +57,27 @@ const tokens = t => new Set(t.toLowerCase().replace(/[^a-z0-9 ]/g, " ").split(/\
 const jac = (a, b) => { let i = 0; for (const x of a) if (b.has(x)) i++; return i / (a.size + b.size - i || 1); };
 
 // ---- optional AI summaries (Gemini free tier). Off unless GEMINI_API_KEY is set. ----
-let GEM_MODEL = process.env.GEMINI_MODEL || "";
+let GEM_MODEL = process.env.GEMINI_MODEL || "", CANDS = [];
 const GEM_KEY = process.env.GEMINI_API_KEY, MAX_AI = +(process.env.MAX_AI_PER_RUN || 15);
 // If GEMINI_MODEL is not set, ask Google which Flash-Lite model this key can use (newest stable first).
 async function pickModel() {
   const r = await fetch("https://generativelanguage.googleapis.com/v1beta/models?pageSize=200", { headers: { "x-goog-api-key": GEM_KEY }, signal: AbortSignal.timeout(20000) });
   if (!r.ok) throw new Error("could not list Gemini models, HTTP " + r.status + " (check the key)");
-  const ms = ((await r.json()).models || []).filter(m => (m.supportedGenerationMethods || []).includes("generateContent") && /flash-lite/i.test(m.name));
+  const ms = ((await r.json()).models || []).filter(m => (m.supportedGenerationMethods || []).includes("generateContent") && /flash-lite/i.test(m.name) && !/tts|image|audio|live|embed|native|dialog|robot|computer|speech|vision/i.test(m.name));
   const ver = m => +((m.name.match(/gemini-(\d+(?:\.\d+)?)/) || [])[1] || 0);
   ms.sort((a, b) => (/preview|exp/i.test(a.name) - /preview|exp/i.test(b.name)) || ver(b) - ver(a));
   if (!ms.length) throw new Error("no Flash-Lite model available to this key");
-  return ms[0].name.replace(/^models\//, "");
+  const names = ms.map(m => m.name.replace(/^models\//, ""));
+  CANDS = names.slice(1, 3); // backups, tried only if the first model is rejected
+  return names[0];
 }
 async function gemini(prompt) {
+  for (;;) {
+    try { return await gemini1(prompt); }
+    catch (e) { if (e.next && CANDS.length) { GEM_MODEL = CANDS.shift(); console.log("AI model (backup):", GEM_MODEL); continue; } throw e; }
+  }
+}
+async function gemini1(prompt) {
   const call = cfg => fetch(`https://generativelanguage.googleapis.com/v1beta/models/${GEM_MODEL}:generateContent`, {
     method: "POST", headers: { "x-goog-api-key": GEM_KEY, "content-type": "application/json" }, signal: AbortSignal.timeout(40000),
     body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }], generationConfig: cfg }) });
@@ -84,7 +92,7 @@ async function gemini(prompt) {
   if (r.status === 403) throw Object.assign(new Error("permission denied (HTTP 403)"), { stop: true });
   if (r.status === 400 || r.status === 404) {
     const body = (await r.text()).replace(/\s+/g, " ").slice(0, 220);
-    throw Object.assign(new Error(`HTTP ${r.status} model=${GEM_MODEL} ${body}`), { stop: true });
+    throw Object.assign(new Error(`HTTP ${r.status} model=${GEM_MODEL} ${body}`), { stop: true, next: true });
   }
   if (!r.ok) throw new Error("Gemini HTTP " + r.status);
   const j = await r.json();
