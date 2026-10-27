@@ -50,8 +50,9 @@ const TOPIC = [
   ["sci", /isro|space|satellite|artificial intelligence|\bai\b|semiconductor|technology|rocket/i],
   ["world", /ukraine|russia|gaza|israel|united nations|nato|white house|european union|iran|ceasefire|\bwar\b/i]];
 const STATES = ["Bihar","Kerala","Uttar Pradesh","Maharashtra","Tamil Nadu","West Bengal"];
+const ROUTINE = /auction|money market operations|variable rate|reverse repo|treasury bill|ways and means|overseas direct investment|weekly statistical|liquidity|\bvrr\b|\bvrrr\b/i;
 const BUMP = /supreme court|parliament|\brbi\b|\bgdp\b|election commission|constitution|cabinet|ceasefire|budget/i;
-const pickTopic = (t, geo) => { for (const [k, re] of TOPIC) if (re.test(t)) return k; return STATES.some(s => t.includes(s)) ? "states" : geo === "World" ? "world" : "other"; };
+const pickTopic = (t, geo, hint) => { for (const [k, re] of TOPIC) if (re.test(t)) return k; return STATES.some(s => t.includes(s)) ? "states" : hint === "economy" ? "econ" : geo === "World" ? "world" : "other"; };
 const tokens = t => new Set(t.toLowerCase().replace(/[^a-z0-9 ]/g, " ").split(/\s+/).filter(w => w.length > 3));
 const jac = (a, b) => { let i = 0; for (const x of a) if (b.has(x)) i++; return i / (a.size + b.size - i || 1); };
 
@@ -102,17 +103,17 @@ try {
 
   const ranked = [];
   for (const [gid, meta] of touched) {
-    const arts = await q("SELECT a.title,a.url,a.snippet,a.published_at,s.id sid,s.name,s.type,s.geography FROM articles a JOIN sources s ON s.id=a.source_id WHERE a.group_id=? ORDER BY a.published_at", [gid]);
+    const arts = await q("SELECT a.title,a.url,a.snippet,a.published_at,s.id sid,s.name,s.type,s.geography,s.topics hint FROM articles a JOIN sources s ON s.id=a.source_id WHERE a.group_id=? ORDER BY a.published_at", [gid]);
     const head = arts.find(a => a.type === "primary") || arts[0];
     const text = arts.map(a => a.title).join(" ");
     const srcs = new Set(arts.map(a => a.sid)), primary = arts.some(a => a.type === "primary");
-    const topic = pickTopic(head.title, head.geography);
+    const topic = pickTopic(head.title, head.geography, head.hint);
     const state = STATES.find(s => text.includes(s)) || null;
     let ev = primary ? "confirmed" : "developing";
     if (/alleg|accus|claims?\b|denies|disput/i.test(text)) ev = "allegation";
     else if (arts.every(a => /opinion|analysis|editorial|explained|comment/i.test(a.url))) ev = "analysis";
-    let imp = 2 + (primary ? 1 : 0) + (srcs.size >= 2 ? 1 : 0) + (srcs.size >= 3 ? 0.5 : 0) + (BUMP.test(text) ? 0.5 : 0); imp = Math.min(5, imp);
-    const reason = [primary && "official source", srcs.size >= 2 && `reported by ${srcs.size} sources`, BUMP.test(text) && "key institution or policy named"].filter(Boolean).join("; ") || "single report";
+    let imp = 2 + (primary ? 1 : 0) + (srcs.size >= 2 ? 1 : 0) + (srcs.size >= 3 ? 0.5 : 0) + (BUMP.test(text) ? 0.5 : 0); const routine = ROUTINE.test(text) && srcs.size < 2; if (routine) imp -= 1; imp = Math.min(5, Math.max(0, imp));
+    const reason = [primary && "official source", srcs.size >= 2 && `reported by ${srcs.size} sources`, BUMP.test(text) && "key institution or policy named", routine && "routine release (ranked lower)"].filter(Boolean).join("; ") || "single report";
     const note = ev === "confirmed" ? "Based on an official announcement; not independently verified by this app." : ev === "allegation" ? "Contains allegations or disputed claims; see attributed sources." : "Based on available reports; details may change.";
     await q(`UPDATE story_groups SET headline=?,summary=?,topic=?,geography=?,state=?,exam_tags='[]',importance=?,importance_reason=?,evidence_status=?,uncertainty_notes=?,event_date=?,updated_at=?,ai_generated=0 WHERE id=?`,
       [head.title, (head.snippet || "").slice(0, 240) || null, topic, head.geography, state, imp, reason, ev, note, head.published_at ? head.published_at.slice(0, 10) : null, iso(), gid]);
