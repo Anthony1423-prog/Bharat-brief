@@ -137,7 +137,19 @@ header.top{position:relative;overflow:hidden}
 @media(max-width:700px){.brand-doodle{width:88px;height:76px;margin-left:auto}.brand-doodle svg{max-height:76px}}
 @media(max-width:480px){.brand-doodle{display:none}}
 </style>
-</head>
+<style>
+.briefing-progress{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:10px 18px;padding:14px 16px;margin:12px 0;background:linear-gradient(110deg,var(--card),color-mix(in srgb,var(--accbg) 55%,var(--card)));border:1px solid var(--line);border-radius:14px}
+.briefing-progress-copy{font:600 .9rem/1.35 system-ui,sans-serif;color:var(--ink)}
+.briefing-progress-copy span{display:block;margin-top:3px;font:400 .78rem system-ui,sans-serif;color:var(--mut)}
+.briefing-track{grid-column:1/-1;height:8px;background:var(--line);border-radius:99px;overflow:hidden}
+.briefing-track span{display:block;height:100%;width:0;background:linear-gradient(90deg,var(--acc),#e5a63b);border-radius:inherit;transition:width .45s cubic-bezier(.2,.8,.2,1)}
+.read-button{font-size:.78rem;padding:6px 10px}
+.card{transition:transform .18s ease,box-shadow .18s ease,border-color .18s ease}
+.card:hover{transform:translateY(-3px);box-shadow:0 10px 24px #142b3d18}
+.topic-icon{transition:transform .2s ease}
+.card:hover .topic-icon,.topic-heading:hover .topic-icon{transform:rotate(-7deg) scale(1.12)}
+@media(prefers-reduced-motion:reduce){.card,.topic-icon,.briefing-track span{transition:none}.card:hover{transform:none}}
+</style></head>
 <body>
 <div class="wrap">
 <header class="top">
@@ -151,6 +163,7 @@ header.top{position:relative;overflow:hidden}
 
 <div class="row"><div class="tabs" role="group" aria-label="Edition"></div><label class="sr" for="day">Edition date</label><select id="day" style="width:auto"><option value="">Latest edition</option></select></div>
 <div class="meta" id="status"></div>
+<section class="briefing-progress" aria-label="Edition reading progress"><div class="briefing-progress-copy">Your edition<span id="briefingProgressText">0 of 0 stories read</span></div><span class="meta" id="briefingPercent">0%</span><div class="briefing-track" role="progressbar" aria-label="Stories read" aria-valuemin="0" aria-valuemax="0" aria-valuenow="0"><span id="briefingProgressBar"></span></div></section>
 
 <div class="chips" id="chips" role="group" aria-label="Choose exam"></div>
 <details class="panel" aria-label="Filters"><summary>Search &amp; more filters</summary>
@@ -221,7 +234,7 @@ async function load(){
 }
 // ---------- STATE ----------
 let readerIndex=0,revRevealed=false,swipeX=null,currentDeck=[];
-const P={view:"feed",done:[],day:"",exam:"general",state:"Bihar",topic:"all",imp:"0",q:"",saved:[],cache:{},theme:"auto",ed:null};
+const P={view:"feed",done:[],read:[],day:"",exam:"general",state:"Bihar",topic:"all",imp:"0",q:"",saved:[],cache:{},theme:"auto",ed:null};
 const KEY="bharatbrief.v1";
 try{Object.assign(P,JSON.parse(localStorage.getItem(KEY)||"{}"))}catch(e){}
 const store=()=>{try{localStorage.setItem(KEY,JSON.stringify(P))}catch(e){}};
@@ -259,7 +272,7 @@ function init(){
  $("#clear").onclick=()=>{if(confirm("Clear saved stories and preferences on this device?")){try{localStorage.removeItem(KEY)}catch(e){}location.reload()}};
  $("#theme").onclick=()=>{P.theme={auto:"light",light:"dark",dark:"auto"}[P.theme];store();applyTheme()};
  $(".viewtabs").onclick=e=>{const b=e.target.closest("[data-view]");if(!b)return;P.view=b.dataset.view;readerIndex=0;revRevealed=false;store();render()};
- $("#list").onclick=e=>{const b=e.target.closest("[data-a]");if(!b)return;const a=b.dataset.a,id=b.dataset.id;if(a==="open")openStory(id);if(a==="save")toggle(id);if(a==="share")share(id);if(a==="prev"){readerIndex=Math.max(0,readerIndex-1);render()}if(a==="next"){readerIndex=Math.min(currentDeck.length-1,readerIndex+1);render()}if(a==="reveal"){revRevealed=true;render()}if(a==="got"){if(!P.done.includes(id))P.done.push(id);readerIndex=0;revRevealed=false;store();render()}if(a==="reset"){P.done=[];readerIndex=0;revRevealed=false;store();render()}};
+ $("#list").onclick=e=>{const b=e.target.closest("[data-a]");if(!b)return;const a=b.dataset.a,id=b.dataset.id;if(a==="open")openStory(id);if(a==="save")toggle(id);if(a==="read")toggleRead(id);if(a==="share")share(id);if(a==="prev"){readerIndex=Math.max(0,readerIndex-1);render()}if(a==="next"){readerIndex=Math.min(currentDeck.length-1,readerIndex+1);render()}if(a==="reveal"){revRevealed=true;render()}if(a==="got"){if(!P.done.includes(id))P.done.push(id);if(!P.read.includes(id))P.read.push(id);readerIndex=0;revRevealed=false;store();render()}if(a==="reset"){P.done=[];readerIndex=0;revRevealed=false;store();render()}};
  $("#list").addEventListener("touchstart",e=>{swipeX=e.changedTouches[0].clientX},{passive:true});
  $("#list").addEventListener("touchend",e=>{if(P.view!=="reader"||swipeX===null)return;const dx=e.changedTouches[0].clientX-swipeX;swipeX=null;if(Math.abs(dx)<55)return;readerIndex=Math.max(0,Math.min(currentDeck.length-1,readerIndex+(dx<0?1:-1)));render()},{passive:true});
  $("#top").onclick=e=>{const a=e.target.closest("a");if(a)openStory(a.dataset.id)};
@@ -267,6 +280,7 @@ function init(){
  applyTheme();load();loadDays();setInterval(()=>$("#now").textContent=istNow(),30000);
 }
 function applyTheme(){const r=document.documentElement;P.theme==="auto"?r.removeAttribute("data-theme"):r.setAttribute("data-theme",P.theme);$("#theme").textContent="Theme: "+P.theme}
+function toggleRead(id){const i=P.read.indexOf(id);if(i>=0)P.read.splice(i,1);else P.read.push(id);store();render()}
 function toggle(id){const i=P.saved.indexOf(id);if(i>=0){P.saved.splice(i,1);delete P.cache[id]}else{P.saved.push(id);const s=findS(id);if(s)P.cache[id]=s}store();render();if($("#dlg").open)fillSave(id)}
 async function share(id){const s=findS(id),txt=s.title+(s.live?"":" (sample content)");try{if(navigator.share)await navigator.share({title:s.title,text:txt,url:location.href});else{await navigator.clipboard.writeText(txt+" "+location.href);alert("Link copied.")}}catch(e){}}
 function topicIcon(k){
@@ -285,7 +299,7 @@ function topicIcon(k){
 }
 function card(s){const r=s.r;return`<article class="card ${r.label}"><div class="tags"><span class="tag topic-tag">${topicIcon(s.topic)}${esc(TOPICS[s.topic])}</span><span class="tag ${r.label}">Importance: ${r.label}</span><span class="tag ev ${s.status}">${s.status}</span>${s.ai?'<span class="tag">AI summary</span>':""}</div>
 <h3>${esc(s.title)}</h3><p>${esc(s.summary)}</p>
-<div class="actions"><button class="btn" data-a="open" data-id="${s.id}">Details &amp; sources</button><button class="btn" data-a="save" data-id="${s.id}" aria-pressed="${P.saved.includes(s.id)}">${P.saved.includes(s.id)?"★ Saved":"☆ Save"}</button><button class="btn" data-a="share" data-id="${s.id}">Share</button></div></article>`}
+<div class="actions"><button class="btn" data-a="open" data-id="${s.id}">Details &amp; sources</button><button class="btn" data-a="save" data-id="${s.id}" aria-pressed="${P.saved.includes(s.id)}">${P.saved.includes(s.id)?"★ Saved":"☆ Save"}</button><button class="btn read-button" data-a="read" data-id="${s.id}" aria-pressed="${P.read.includes(s.id)}">${P.read.includes(s.id)?"✓ Read":"Mark as read"}</button><button class="btn" data-a="share" data-id="${s.id}">Share</button></div></article>`}
 function render(){
  $("#now").textContent=istNow();
  $("#stWrap").hidden=P.exam!=="spsc";
@@ -301,6 +315,11 @@ function render(){
   .filter(s=>(P.topic==="all"||s.topic===P.topic)&&s.r.total>=+P.imp&&(!q||(s.title+s.summary).toLowerCase().includes(q)))
   .sort((a,b)=>b.r.total-a.r.total);
  $("#count").textContent=L.length+" "+(L.length===1?"story":"stories");
+ const editionStories=DATA.filter(s=>s.ed===P.ed),readCount=editionStories.filter(s=>P.read.includes(s.id)).length,total=editionStories.length,pct=total?Math.round(readCount/total*100):0;
+ $("#briefingProgressText").textContent=readCount+" of "+total+" "+(total===1?"story":"stories")+" read";
+ $("#briefingPercent").textContent=pct+"%";
+ const progress=$("#briefingProgressBar").parentElement;progress.setAttribute("aria-valuemax",String(total));progress.setAttribute("aria-valuenow",String(readCount));
+ $("#briefingProgressBar").style.width=pct+"%";
  document.querySelectorAll(".viewtabs [data-view]").forEach(b=>b.setAttribute("aria-pressed",b.dataset.view===P.view));
  $("#viewhint").textContent=P.view==="reader"?"Swipe on a phone or use Previous and Next. Your filters still shape this deck.":P.view==="revise"?"Flashcards use stories saved on this device. Progress stays in this browser.":"Scan the edition, save stories, or switch to focused reading.";
  $("#top").parentElement.hidden=P.view!=="feed";
@@ -308,7 +327,7 @@ function render(){
  $("#top").innerHTML=L.slice(0,3).map(s=>`<li><a href="#" data-id="${s.id}" onclick="return false">${esc(s.title)}</a> <span class="meta">(${s.r.label})</span></li>`).join("")||`<li class="meta">Nothing to show.</li>`;
  if(P.view==="reader"&&L.length){
    readerIndex=Math.max(0,Math.min(readerIndex,L.length-1));const s=L[readerIndex];
-   $("#list").innerHTML=`<div class="reader-progress" aria-label="Reading progress"><span style="width:${((readerIndex+1)/L.length)*100}%"></span></div><article class="card reader-card ${s.r.label}"><div class="tags"><span class="tag">${esc(TOPICS[s.topic])}</span><span class="tag ${s.r.label}">${s.r.label} importance</span><span class="tag ev ${s.status}">${s.status}</span></div><p class="reader-count">STORY ${readerIndex+1} OF ${L.length}</p><h3>${esc(s.title)}</h3><p class="reader-summary">${esc(s.summary)}</p><p class="meta">${esc(s.why||"")}</p><div class="actions"><button class="btn" data-a="open" data-id="${s.id}">Full brief &amp; sources</button><button class="btn" data-a="save" data-id="${s.id}">${P.saved.includes(s.id)?"★ Saved":"☆ Save"}</button></div></article><div class="reader-nav"><button class="btn" data-a="prev" ${readerIndex===0?"disabled":""}>← Previous</button><span class="reader-count">${readerIndex+1} / ${L.length}</span><button class="btn" data-a="next" ${readerIndex===L.length-1?"disabled":""}>Next →</button></div>`;
+   $("#list").innerHTML=`<div class="reader-progress" aria-label="Reading progress"><span style="width:${((readerIndex+1)/L.length)*100}%"></span></div><article class="card reader-card ${s.r.label}"><div class="tags"><span class="tag">${esc(TOPICS[s.topic])}</span><span class="tag ${s.r.label}">${s.r.label} importance</span><span class="tag ev ${s.status}">${s.status}</span></div><p class="reader-count">STORY ${readerIndex+1} OF ${L.length}</p><h3>${esc(s.title)}</h3><p class="reader-summary">${esc(s.summary)}</p><p class="meta">${esc(s.why||"")}</p><div class="actions"><button class="btn" data-a="open" data-id="${s.id}">Full brief &amp; sources</button><button class="btn" data-a="save" data-id="${s.id}">${P.saved.includes(s.id)?"★ Saved":"☆ Save"}</button><button class="btn read-button" data-a="read" data-id="${s.id}" aria-pressed="${P.read.includes(s.id)}">${P.read.includes(s.id)?"✓ Read":"Mark as read"}</button></div></article><div class="reader-nav"><button class="btn" data-a="prev" ${readerIndex===0?"disabled":""}>← Previous</button><span class="reader-count">${readerIndex+1} / ${L.length}</span><button class="btn" data-a="next" ${readerIndex===L.length-1?"disabled":""}>Next →</button></div>`;
    return;
  }
  if(P.view==="revise"&&L.length){
