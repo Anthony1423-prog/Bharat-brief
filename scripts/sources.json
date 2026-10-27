@@ -64,5 +64,49 @@
   "feed_url": "https://www.aljazeera.com/xml/rss/all.xml",
   "enabled": 1,
   "notes": "World coverage; links only. URL not yet confirmed."
+ },
+ {
+  "id": "thehindu_biz",
+  "name": "The Hindu - Business",
+  "domain": "thehindu.com",
+  "type": "independent",
+  "geography": "India",
+  "topics": "economy",
+  "feed_url": "https://www.thehindu.com/business/feeder/default.rss",
+  "enabled": 1,
+  "notes": "Economy and business reporting. URL not yet confirmed; failure is logged and skipped. Headline + short snippet + link only."
+ },
+ {
+  "id": "thehindu_world",
+  "name": "The Hindu - International",
+  "domain": "thehindu.com",
+  "type": "independent",
+  "geography": "World",
+  "topics": "world",
+  "feed_url": "https://www.thehindu.com/news/international/feeder/default.rss",
+  "enabled": 1,
+  "notes": "World coverage. URL not yet confirmed; failure is logged and skipped. Headline + short snippet + link only."
+ },
+ {
+  "id": "hindustantimes",
+  "name": "Hindustan Times - India",
+  "domain": "hindustantimes.com",
+  "type": "independent",
+  "geography": "India",
+  "topics": "national",
+  "feed_url": "https://www.hindustantimes.com/feeds/rss/india-news/rssfeed.xml",
+  "enabled": 1,
+  "notes": "National coverage. URL not yet confirmed; failure is logged and skipped. Headline + short snippet + link only."
+ },
+ {
+  "id": "hindustantimes_world",
+  "name": "Hindustan Times - World",
+  "domain": "hindustantimes.com",
+  "type": "independent",
+  "geography": "World",
+  "topics": "world",
+  "feed_url": "https://www.hindustantimes.com/feeds/rss/world-news/rssfeed.xml",
+  "enabled": 1,
+  "notes": "World coverage. URL not yet confirmed; failure is logged and skipped. Headline + short snippet + link only."
  }
 ]
