@@ -1,0 +1,8 @@
+[
+ {"id":"pib","name":"Press Information Bureau (PIB)","domain":"pib.gov.in","type":"primary","geography":"India","topics":"government","feed_url":"https://pib.gov.in/RssMain.aspx?ModId=6&Lang=1&Regid=3","enabled":1,"notes":"Official press releases. Feed format taken from pib.gov.in/ViewRss.aspx; confirm on first run."},
+ {"id":"rbi","name":"Reserve Bank of India","domain":"rbi.org.in","type":"primary","geography":"India","topics":"economy","feed_url":"https://rbi.org.in/pressreleases_rss.xml","enabled":1,"notes":"Official press releases. URL not yet confirmed; failure is logged and skipped."},
+ {"id":"thehindu","name":"The Hindu","domain":"thehindu.com","type":"independent","geography":"India","topics":"national","feed_url":"https://www.thehindu.com/news/national/feeder/default.rss","enabled":1,"notes":"Independent reporting; headline + short snippet + link only. URL not yet confirmed."},
+ {"id":"indianexpress","name":"The Indian Express","domain":"indianexpress.com","type":"independent","geography":"India","topics":"national","feed_url":"https://indianexpress.com/section/india/feed/","enabled":1,"notes":"Independent reporting; headline + snippet + link only. URL not yet confirmed."},
+ {"id":"bbcworld","name":"BBC News - World","domain":"bbc.co.uk","type":"independent","geography":"World","topics":"world","feed_url":"https://feeds.bbci.co.uk/news/world/rss.xml","enabled":1,"notes":"World coverage; links only. URL not yet confirmed."},
+ {"id":"aljazeera","name":"Al Jazeera","domain":"aljazeera.com","type":"independent","geography":"World","topics":"world","feed_url":"https://www.aljazeera.com/xml/rss/all.xml","enabled":1,"notes":"World coverage; links only. URL not yet confirmed."}
+]
