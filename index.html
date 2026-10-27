@@ -78,6 +78,48 @@ h2{font-size:.95rem;text-transform:uppercase;letter-spacing:.06em;color:var(--ac
 .panel,.btn,select,input[type=search],.banner,.tabs button,.chip{border-radius:6px}
 .tag{border-radius:4px;font-weight:600}
 </style>
+<style>
+/* Bharat Brief: calm, modern current-affairs reading experience */
+:root{--bg:#f4f6f8;--card:#fff;--ink:#172536;--mut:#647386;--line:#dce3e9;--acc:#174f75;--accbg:#e8f1f6;--warn:#805516;--warnbg:#fff6df}
+@media(prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#101923;--card:#172431;--ink:#eef4f7;--mut:#a4b4c0;--line:#2a3b49;--acc:#7fc3e5;--accbg:#203747;--warn:#f4ca72;--warnbg:#382f1b}}
+:root[data-theme="dark"]{--bg:#101923;--card:#172431;--ink:#eef4f7;--mut:#a4b4c0;--line:#2a3b49;--acc:#7fc3e5;--accbg:#203747;--warn:#f4ca72;--warnbg:#382f1b}
+body{font-family:system-ui,-apple-system,"Segoe UI",sans-serif;background:var(--bg)}
+.wrap{max-width:1080px;padding:18px}
+header.top{border:0;border-radius:18px;padding:22px 24px;background:linear-gradient(120deg,#153f5c,#1d6a79);color:#fff;box-shadow:0 10px 30px #102d421a}
+header h1{font:800 1.8rem/1.1 system-ui,sans-serif;color:#fff;letter-spacing:-.04em}
+header.top p,.clock{color:#e5f1f5}
+header.top p{margin-top:8px}
+.clock .btn{background:#ffffff18;color:#fff;border-color:#ffffff55}
+.banner{border-radius:12px}
+.panel,.btn,select,input[type=search],.tabs button,.chip,.banner{border-radius:12px}
+.panel{padding:16px}
+.tabs button,.chip,.btn{transition:transform .16s ease,border-color .16s ease,background .16s ease}
+.tabs button:hover,.chip:hover,.btn:hover{transform:translateY(-1px)}
+.tabs button[aria-pressed=true],.chip[aria-pressed=true]{background:var(--acc);color:#fff;border-color:var(--acc)}
+.viewbar{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin:16px 0}
+.viewtabs{display:flex;gap:8px;flex-wrap:wrap}
+.viewtabs .btn[aria-pressed=true]{background:var(--acc);color:#fff;border-color:var(--acc)}
+.viewhint{font:.84rem system-ui,sans-serif;color:var(--mut)}
+.card{border:1px solid var(--line);border-left:4px solid var(--acc);border-radius:14px;box-shadow:0 4px 16px #142b3d0b}
+.card.High{border-left-color:#d05042}.card.Medium{border-left-color:#c28a20}.card.Low{border-left-color:#718399}
+h2{font-family:system-ui,sans-serif;text-transform:none;letter-spacing:-.02em;color:var(--ink);border-color:var(--line);font-size:1.2rem}
+.tag{border-radius:999px}
+.reader-card{max-width:760px;min-height:420px;margin:20px auto;padding:clamp(20px,5vw,44px);justify-content:center}
+.reader-card h3{font-size:clamp(1.5rem,4vw,2.3rem);line-height:1.17;letter-spacing:-.035em}
+.reader-summary{font-size:1.08rem;line-height:1.75}
+.reader-progress{height:6px;background:var(--line);border-radius:9px;overflow:hidden;margin:8px 0 18px}
+.reader-progress span{display:block;height:100%;background:var(--acc);transition:width .2s ease}
+.reader-nav{display:flex;justify-content:space-between;gap:10px;align-items:center;max-width:760px;margin:0 auto}
+.reader-count{font:.85rem system-ui,sans-serif;color:var(--mut)}
+.revise-card{max-width:700px;min-height:380px;margin:20px auto;cursor:pointer}
+.revise-front{display:grid;place-content:center;text-align:center;min-height:300px;gap:16px}
+.revise-front h3{font-size:clamp(1.4rem,4vw,2rem);line-height:1.2}
+.revise-front .meta{font-size:.95rem}
+.revise-actions{display:flex;justify-content:center;gap:10px;flex-wrap:wrap}
+.revise-actions .btn:first-child{background:var(--acc);color:white;border-color:var(--acc)}
+.empty{padding:38px 12px}
+@media(max-width:600px){.wrap{padding:12px}.reader-card{min-height:380px}.reader-nav .btn{padding:10px 14px}}
+</style>
 </head>
 <body>
 <div class="wrap">
@@ -110,6 +152,7 @@ h2{font-size:.95rem;text-transform:uppercase;letter-spacing:.06em;color:var(--ac
  <p class="meta" id="weights" style="margin:8px 0 0"></p>
 </details>
 
+<nav class="viewbar" aria-label="Reading mode"><div class="viewtabs"><button class="btn" data-view="feed" aria-pressed="true">Feed</button><button class="btn" data-view="reader" aria-pressed="false">Read stories</button><button class="btn" data-view="revise" aria-pressed="false">Revise saved</button></div><span class="viewhint" id="viewhint">Scan the edition, save stories, or switch to focused reading.</span></nav>
 <section class="panel top3" aria-labelledby="t3"><h2 id="t3" style="margin-top:0">Top developments</h2><ol id="top"></ol></section>
 <main id="list"></main>
 
@@ -159,7 +202,8 @@ async function load(){
  render();
 }
 // ---------- STATE ----------
-const P={day:"",exam:"general",state:"Bihar",topic:"all",imp:"0",q:"",saved:[],cache:{},theme:"auto",ed:null};
+let readerIndex=0,revRevealed=false,swipeX=null;
+const P={view:"feed",done:[],day:"",exam:"general",state:"Bihar",topic:"all",imp:"0",q:"",saved:[],cache:{},theme:"auto",ed:null};
 const KEY="bharatbrief.v1";
 try{Object.assign(P,JSON.parse(localStorage.getItem(KEY)||"{}"))}catch(e){}
 const store=()=>{try{localStorage.setItem(KEY,JSON.stringify(P))}catch(e){}};
@@ -196,7 +240,10 @@ function init(){
  $("#savedOnly").onchange=render;
  $("#clear").onclick=()=>{if(confirm("Clear saved stories and preferences on this device?")){try{localStorage.removeItem(KEY)}catch(e){}location.reload()}};
  $("#theme").onclick=()=>{P.theme={auto:"light",light:"dark",dark:"auto"}[P.theme];store();applyTheme()};
- $("#list").onclick=e=>{const b=e.target.closest("[data-a]");if(!b)return;const id=b.dataset.id;if(b.dataset.a==="open")openStory(id);if(b.dataset.a==="save")toggle(id);if(b.dataset.a==="share")share(id)};
+ $(".viewtabs").onclick=e=>{const b=e.target.closest("[data-view]");if(!b)return;P.view=b.dataset.view;readerIndex=0;revRevealed=false;store();render()};
+ $("#list").onclick=e=>{const b=e.target.closest("[data-a]");if(!b)return;const a=b.dataset.a,id=b.dataset.id;if(a==="open")openStory(id);if(a==="save")toggle(id);if(a==="share")share(id);if(a==="prev"){readerIndex=Math.max(0,readerIndex-1);render()}if(a==="next"){readerIndex=Math.min(currentDeck.length-1,readerIndex+1);render()}if(a==="reveal"){revRevealed=true;render()}if(a==="got"){if(!P.done.includes(id))P.done.push(id);readerIndex=Math.min(readerIndex,currentDeck.length-1);revRevealed=false;store();render()}};
+ $("#list").addEventListener("touchstart",e=>{swipeX=e.changedTouches[0].clientX},{passive:true});
+ $("#list").addEventListener("touchend",e=>{if(P.view!=="reader"||swipeX===null)return;const dx=e.changedTouches[0].clientX-swipeX;swipeX=null;if(Math.abs(dx)<55)return;readerIndex=Math.max(0,Math.min(currentDeck.length-1,readerIndex+(dx<0?1:-1)));render()},{passive:true});
  $("#top").onclick=e=>{const a=e.target.closest("a");if(a)openStory(a.dataset.id)};
  $("#dclose").onclick=()=>$("#dlg").close();
  applyTheme();load();loadDays();setInterval(()=>$("#now").textContent=istNow(),30000);
@@ -207,6 +254,7 @@ async function share(id){const s=findS(id),txt=s.title+(s.live?"":" (sample cont
 function card(s){const r=s.r;return`<article class="card ${r.label}"><div class="tags"><span class="tag">${esc(TOPICS[s.topic])}</span><span class="tag ${r.label}">Importance: ${r.label}</span><span class="tag ev ${s.status}">${s.status}</span>${s.ai?'<span class="tag">AI summary</span>':""}</div>
 <h3>${esc(s.title)}</h3><p>${esc(s.summary)}</p>
 <div class="actions"><button class="btn" data-a="open" data-id="${s.id}">Details &amp; sources</button><button class="btn" data-a="save" data-id="${s.id}" aria-pressed="${P.saved.includes(s.id)}">${P.saved.includes(s.id)?"★ Saved":"☆ Save"}</button><button class="btn" data-a="share" data-id="${s.id}">Share</button></div></article>`}
+let currentDeck=[];
 function render(){
  $("#now").textContent=istNow();
  $("#stWrap").hidden=P.exam!=="spsc";
@@ -217,13 +265,27 @@ function render(){
  const ed=EDITIONS.find(e=>e.k===P.ed);
  $("#status").textContent=MODE==="live"?ed.n+" edition · "+META.edition.edition_date+" · published "+fmtIST(META.edition.published_at)+(META.job?" · "+META.job.sources_ok+" of "+(META.job.sources_ok+META.job.sources_failed)+" sources read in last run":""):MODE==="sample"?ed.n+" edition · sample stories":MODE==="loading"?"Loading…":ed.n+" edition · not published yet";
  $("#banner").innerHTML=MODE==="live"&&P.day?"<strong>Archived edition.</strong> Showing what was published on this date; later developments are not included. Not independently verified.":MODE==="live"?"<strong>Live edition.</strong> Headlines and links are collected automatically from the listed sources and are not independently verified. Read the originals.":MODE==="sample"?"<strong>Live data unavailable. Showing sample stories only, not real news.</strong>":MODE==="empty"?"<strong>No edition has been published for this slot yet.</strong> Editions appear after each scheduled run.":"Loading the latest edition…";
- const so=$("#savedOnly").checked,q=P.q.trim().toLowerCase();
+ const so=$("#savedOnly").checked||P.view==="revise",q=P.q.trim().toLowerCase();
  let L=(so?Object.values(P.cache):DATA).filter(s=>so||s.ed===P.ed).map(s=>({...s,r:score(s)}))
   .filter(s=>(P.topic==="all"||s.topic===P.topic)&&s.r.total>=+P.imp&&(!q||(s.title+s.summary).toLowerCase().includes(q)))
   .sort((a,b)=>b.r.total-a.r.total);
  $("#count").textContent=L.length+" "+(L.length===1?"story":"stories");
+ $(".viewtabs [data-view]").forEach(b=>b.setAttribute("aria-pressed",b.dataset.view===P.view));
+ $("#viewhint").textContent=P.view==="reader"?"Swipe on a phone or use Previous and Next. Your filters still shape this deck.":P.view==="revise"?"Flashcards use stories you have saved on this device. Progress stays in this browser.":"Scan the edition, save stories, or switch to focused reading.";
+ $("#top").parentElement.hidden=P.view!=="feed";
+ currentDeck=L;
  $("#top").innerHTML=L.slice(0,3).map(s=>`<li><a href="#" data-id="${s.id}" onclick="return false">${esc(s.title)}</a> <span class="meta">(${s.r.label})</span></li>`).join("")||`<li class="meta">Nothing to show.</li>`;
- if(!L.length){$("#list").innerHTML=`<div class="empty">${so?"No saved stories yet.":MODE==="loading"?"Loading edition…":MODE==="empty"?"Nothing published for this slot yet.":"No major update matches these filters in this edition."}</div>`;return}
+ if(P.view==="reader"&&L.length){
+   readerIndex=Math.max(0,Math.min(readerIndex,L.length-1));const s=L[readerIndex];
+   $("#list").innerHTML=`<div class="reader-progress" aria-label="Reading progress"><span style="width:${((readerIndex+1)/L.length)*100}%"></span></div><article class="card reader-card ${s.r.label}"><div class="tags"><span class="tag">${esc(TOPICS[s.topic])}</span><span class="tag ${s.r.label}">${s.r.label} importance</span><span class="tag ev ${s.status}">${s.status}</span></div><p class="reader-count">STORY ${readerIndex+1} OF ${L.length}</p><h3>${esc(s.title)}</h3><p class="reader-summary">${esc(s.summary)}</p><p class="meta">${esc(s.why||"")}</p><div class="actions"><button class="btn" data-a="open" data-id="${s.id}">Full brief &amp; sources</button><button class="btn" data-a="save" data-id="${s.id}">${P.saved.includes(s.id)?"★ Saved":"☆ Save"}</button></div></article><div class="reader-nav"><button class="btn" data-a="prev" ${readerIndex===0?"disabled":""}>← Previous</button><span class="reader-count">${readerIndex+1} / ${L.length}</span><button class="btn" data-a="next" ${readerIndex===L.length-1?"disabled":""}>Next →</button></div>`;
+   return;
+ }
+ if(P.view==="revise"&&L.length){
+   const pending=L.filter(s=>!P.done.includes(s.id));currentDeck=pending.length?pending:L;readerIndex=Math.max(0,Math.min(readerIndex,currentDeck.length-1));const s=currentDeck[readerIndex];
+   $("#list").innerHTML=pending.length?`<article class="card revise-card" data-a="reveal" aria-label="Tap to reveal story brief"><div class="tags"><span class="tag">REVISION ${readerIndex+1} / ${pending.length}</span><span class="tag">${esc(TOPICS[s.topic])}</span></div><div class="revise-front"><p class="meta">What was the key development?</p><h3>${esc(s.title)}</h3>${revRevealed?`<div><h4>Brief</h4><p>${esc(s.summary)}</p><h4>Exam connection</h4><p>${esc(s.live?"Topic: "+TOPICS[s.topic]+". "+(s.why||""):s.note)}</p></div><div class="revise-actions"><button class="btn" data-a="got" data-id="${s.id}">Got it ✓</button><button class="btn" data-a="reveal">Review again</button><button class="btn" data-a="open" data-id="${s.id}">Sources</button></div>`:`<button class="btn" data-a="reveal">Reveal brief</button>`}</div></article>`: `<div class="empty">You’ve reviewed all saved stories in this session. Choose “Review again” by resetting your progress or save more stories.</div>`;
+   return;
+ }
+ if(!L.length){if(P.view==="revise"){$("#list").innerHTML=`<div class="empty">Save stories from the feed, then come back here to revise them.</div>`;return} $("#list").innerHTML=`<div class="empty">${so?"No saved stories yet.":MODE==="loading"?"Loading edition…":MODE==="empty"?"Nothing published for this slot yet.":"No major update matches these filters in this edition."}</div>`;return}
  $("#list").innerHTML=Object.keys(TOPICS).filter(k=>L.some(s=>s.topic===k)).map(k=>`<h2>${esc(TOPICS[k])}</h2><div class="cards">${L.filter(s=>s.topic===k).map(card).join("")}</div>`).join("");
 }
 function fillSave(id){const b=$("#dsave");b.textContent=P.saved.includes(id)?"★ Saved":"☆ Save";b.onclick=()=>toggle(id)}
