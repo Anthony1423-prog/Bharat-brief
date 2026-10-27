@@ -145,7 +145,7 @@ let DATA=SAMPLE,MODE="loading",META=null,TOK=0;
 const API="https://bharat-brief-api.purushottampriyadarshi0.workers.dev";
 const cap=x=>({confirmed:"Confirmed",developing:"Developing",allegation:"Allegation",analysis:"Analysis"}[x]||"Developing");
 const fmtIST=i=>i?new Date(i).toLocaleString("en-IN",{timeZone:"Asia/Kolkata",day:"numeric",month:"short",hour:"numeric",minute:"2-digit",hour12:true})+" IST":"n/a";
-const mapLive=j=>j.stories.map(g=>({id:g.id,ed:P.ed,live:true,topic:TOPICS[g.topic]?g.topic:"other",geo:g.geography||"",state:g.state||"",status:cap(g.evidence_status),title:g.headline,summary:g.summary||"No summary available. See the linked sources.",why:g.why_it_matters,watch:g.what_to_watch,note:g.uncertainty_notes||"",imp:g.importance||0,rr:g.importance_reason||"single report",evd:g.event_date,upd:g.updated_at,srcs:(g.sources||[]).filter(x=>/^https?:\/\//.test(x.url)).map(x=>({n:x.source,t:x.title,u:x.url,d:fmtIST(x.published_at)}))}));
+const mapLive=j=>j.stories.map(g=>({id:g.id,ed:P.ed,live:true,topic:TOPICS[g.topic]?g.topic:"other",geo:g.geography||"",state:g.state||"",status:cap(g.evidence_status),title:g.headline,summary:g.summary||"No summary available. See the linked sources.",why:g.why_it_matters,watch:g.what_to_watch,note:g.uncertainty_notes||"",imp:g.importance||0,ai:g.ai_generated===1,rr:g.importance_reason||"single report",evd:g.event_date,upd:g.updated_at,srcs:(g.sources||[]).filter(x=>/^https?:\/\//.test(x.url)).map(x=>({n:x.source,t:x.title,u:x.url,d:fmtIST(x.published_at)}))}));
 const findS=id=>DATA.find(x=>x.id===id)||P.cache[id];
 async function load(){
  const tk=++TOK;MODE="loading";META=null;DATA=[];render();
@@ -199,7 +199,7 @@ function init(){
 function applyTheme(){const r=document.documentElement;P.theme==="auto"?r.removeAttribute("data-theme"):r.setAttribute("data-theme",P.theme);$("#theme").textContent="Theme: "+P.theme}
 function toggle(id){const i=P.saved.indexOf(id);if(i>=0){P.saved.splice(i,1);delete P.cache[id]}else{P.saved.push(id);const s=findS(id);if(s)P.cache[id]=s}store();render();if($("#dlg").open)fillSave(id)}
 async function share(id){const s=findS(id),txt=s.title+(s.live?"":" (sample content)");try{if(navigator.share)await navigator.share({title:s.title,text:txt,url:location.href});else{await navigator.clipboard.writeText(txt+" "+location.href);alert("Link copied.")}}catch(e){}}
-function card(s){const r=s.r;return`<article class="card ${r.label}"><div class="tags"><span class="tag">${esc(TOPICS[s.topic])}</span><span class="tag ${r.label}">Importance: ${r.label}</span><span class="tag ev ${s.status}">${s.status}</span></div>
+function card(s){const r=s.r;return`<article class="card ${r.label}"><div class="tags"><span class="tag">${esc(TOPICS[s.topic])}</span><span class="tag ${r.label}">Importance: ${r.label}</span><span class="tag ev ${s.status}">${s.status}</span>${s.ai?'<span class="tag">AI summary</span>':""}</div>
 <h3>${esc(s.title)}</h3><p>${esc(s.summary)}</p>
 <div class="actions"><button class="btn" data-a="open" data-id="${s.id}">Details &amp; sources</button><button class="btn" data-a="save" data-id="${s.id}" aria-pressed="${P.saved.includes(s.id)}">${P.saved.includes(s.id)?"★ Saved":"☆ Save"}</button><button class="btn" data-a="share" data-id="${s.id}">Share</button></div></article>`}
 function render(){
@@ -226,7 +226,7 @@ function openStory(id){
  const s=findS(id),r=score(s);
  $("#dbody").innerHTML=`<div class="tags"><span class="tag">${esc(TOPICS[s.topic])}</span><span class="tag">${esc(s.state||s.geo)}</span><span class="tag ${r.label}">Importance: ${r.label}</span><span class="tag ev ${s.status}">${s.status}</span>${s.live?"":'<span class="tag">SAMPLE</span>'}</div>
 <h3 id="dt">${esc(s.title)}</h3><p class="meta">${s.live?"Event date: "+esc(s.evd||"not stated")+" · Last updated: "+esc(fmtIST(s.upd)):"Event date: sample (not real) · Published/updated: sample (not real)"}</p>
-<h4>Summary</h4><p>${esc(s.summary)}</p><h4>Why it matters</h4><p>${esc(s.why||"Not available yet. AI summaries are switched off.")}</p><h4>What to watch next</h4><p>${esc(s.watch||"No clear next step is reported yet.")}</p>
+<h4>Summary</h4><p>${esc(s.summary)}</p>${s.ai?'<p class="meta">AI-assisted summary based only on the linked sources. It can contain errors; check the originals.</p>':""}<h4>Why it matters</h4><p>${esc(s.why||"Not available yet. AI summaries are switched off.")}</p><h4>What to watch next</h4><p>${esc(s.watch||"No clear next step is reported yet.")}</p>
 <h4>Why this importance</h4><p>${esc(r.reason)} Score ${r.total.toFixed(1)}/5 (impact, novelty, source strength, urgency, exam relevance).</p>
 <h4>Exam note</h4><p>${esc(s.live?"Topic: "+TOPICS[s.topic]+". Exam relevance is a topic weighting, not a prediction of questions.":s.note)}</p><h4>Evidence note</h4><p>${esc(s.live?s.note:"Sample.")}</p><h4>Sources</h4>${s.srcs.map(x=>x.u?`<p class="src"><a href="${esc(x.u)}" target="_blank" rel="noopener noreferrer">${esc(x.t||x.n)}</a><br><span class="meta">${esc(x.n)} · ${esc(x.d)}</span></p>`:`<p class="src">${esc(x.n)} — ${esc(x.d)} · <em>placeholder, no real link</em></p>`).join("")}`;
  $("#dshare").onclick=()=>share(id);fillSave(id);$("#dlg").showModal();
