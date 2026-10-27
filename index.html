@@ -49,6 +49,12 @@ dialog h3{margin-top:0}dialog h4{margin:14px 0 4px;font:600 .85rem system-ui,san
 .src{font:.9rem system-ui,sans-serif;margin:4px 0}
 .empty{text-align:center;color:var(--mut);padding:28px 8px}
 footer{font:.8rem system-ui,sans-serif;color:var(--mut);margin:28px 0 12px}
+.footer-about{display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;padding:18px 20px;margin-bottom:14px;background:var(--card);border:1px solid var(--line);border-radius:14px}
+.footer-about-copy strong{display:block;color:var(--ink);font-size:.95rem}
+.footer-about-copy p{margin:4px 0 0;max-width:620px;font: .86rem/1.55 system-ui,sans-serif;color:var(--mut)}
+.footer-github{display:inline-flex;align-items:center;gap:8px;padding:9px 13px;border:1px solid var(--line);border-radius:999px;color:var(--ink);font:600 .85rem system-ui,sans-serif;text-decoration:none;background:var(--bg)}
+.footer-github:hover{border-color:var(--acc);color:var(--acc)}
+.footer-github svg{width:18px;height:18px;fill:currentColor;flex:none}
 .sr{position:absolute;left:-9999px}
 :root{--bg:#f6f4ff;--acc:#5b3df5;--accbg:#ece8ff;--line:#e1dcf7}
 @media(prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#12111c;--card:#1c1a2b;--acc:#a99cff;--accbg:#2a2450;--line:#2f2b4a}}
@@ -77,7 +83,6 @@ header h1{font:700 1.6rem Georgia,"Times New Roman",serif;color:var(--acc);lette
 h2{font-size:.95rem;text-transform:uppercase;letter-spacing:.06em;color:var(--acc);border-bottom:2px solid var(--acc)}
 .panel,.btn,select,input[type=search],.banner,.tabs button,.chip{border-radius:6px}
 .tag{border-radius:4px;font-weight:600}
-.developer-credit{margin:.55rem 0 0;font:500 .8rem/1.4 system-ui,-apple-system,"Segoe UI",sans-serif;color:var(--mut);letter-spacing:.01em}.developer-credit a{color:var(--acc);font-weight:650;text-decoration:none}.developer-credit a:hover{text-decoration:underline}
 </style>
 <style>
 :root{--bg:#f4f6f8;--card:#fff;--ink:#172536;--mut:#647386;--line:#dce3e9;--acc:#174f75;--accbg:#e8f1f6;--warn:#805516;--warnbg:#fff6df}
@@ -122,7 +127,7 @@ h2{font-family:system-ui,sans-serif;text-transform:none;letter-spacing:-.02em;co
 <body>
 <div class="wrap">
 <header class="top">
- <div><h1>Bharat Brief</h1><p>India &amp; world current affairs, sourced and sorted for exam revision.</p><p class="developer-credit">Designed &amp; developed by <a href="https://github.com/Anthony1423-prog" target="_blank" rel="noopener noreferrer">Purushottam</a></p></div>
+ <div><h1>Bharat Brief</h1><p>India &amp; world current affairs, sourced and sorted for exam revision.</p></div>
  <div class="clock" aria-live="off"><div id="now"></div><div>Intended editions: 7:00 AM · 1:00 PM · 7:00 PM IST</div>
   <button class="btn" id="theme" style="margin-top:6px">Theme: auto</button></div>
 </header>
@@ -154,7 +159,7 @@ h2{font-family:system-ui,sans-serif;text-transform:none;letter-spacing:-.02em;co
 <section class="panel top3" aria-labelledby="t3"><h2 id="t3" style="margin-top:0">Top developments</h2><ol id="top"></ol></section>
 <main id="list"></main>
 
-<footer>Educational summaries — not an official exam authority or a substitute for original sources. Importance is a configurable score, not an exam prediction. Your saved items stay in this browser.</footer>
+<footer><div class="footer-about"><div class="footer-about-copy"><strong>About the developer</strong><p>I’m Purushottam, the developer of Bharat Brief. I’m building a simple way to follow current affairs and make exam revision easier.</p></div><a class="footer-github" href="https://github.com/Anthony1423-prog" target="_blank" rel="noopener noreferrer" aria-label="Visit Purushottam on GitHub"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 .9a11.1 11.1 0 0 0-3.51 21.63c.56.1.76-.24.76-.54v-2.08c-3.1.68-3.76-1.32-3.76-1.32-.5-1.3-1.24-1.65-1.24-1.65-1.01-.69.08-.68.08-.68 1.12.08 1.71 1.15 1.71 1.15 1 .1.76 2.37 3.22 1.8.1-.72.4-1.2.72-1.48-2.47-.28-5.06-1.24-5.06-5.5 0-1.22.44-2.21 1.15-2.99-.12-.28-.5-1.42.11-2.95 0 0 .94-.3 3.05 1.14a10.6 10.6 0 0 1 5.55 0c2.12-1.44 3.05-1.14 3.05-1.14.61 1.53.23 2.67.12 2.95.71.78 1.14 1.77 1.14 2.99 0 4.27-2.6 5.21-5.08 5.49.4.34.76 1.02.76 2.06v3.06c0 .3.2.65.77.54A11.1 11.1 0 0 0 12 .9Z"/></svg><span>GitHub</span></a></div><p>Educational summaries — not an official exam authority or a substitute for original sources. Importance is a configurable score, not an exam prediction. Your saved items stay in this browser.</p></footer>
 </div>
 
 <dialog id="dlg" aria-labelledby="dt"><div id="dbody"></div><div class="row" style="margin-top:14px"><button class="btn" id="dsave"></button><button class="btn" id="dshare">Share</button><button class="btn" id="dclose">Close</button></div></dialog>
