@@ -57,7 +57,18 @@ const tokens = t => new Set(t.toLowerCase().replace(/[^a-z0-9 ]/g, " ").split(/\
 const jac = (a, b) => { let i = 0; for (const x of a) if (b.has(x)) i++; return i / (a.size + b.size - i || 1); };
 
 // ---- optional AI summaries (Gemini free tier). Off unless GEMINI_API_KEY is set. ----
-const GEM_KEY = process.env.GEMINI_API_KEY, GEM_MODEL = process.env.GEMINI_MODEL || "gemini-2.5-flash-lite", MAX_AI = +(process.env.MAX_AI_PER_RUN || 15);
+let GEM_MODEL = process.env.GEMINI_MODEL || "";
+const GEM_KEY = process.env.GEMINI_API_KEY, MAX_AI = +(process.env.MAX_AI_PER_RUN || 15);
+// If GEMINI_MODEL is not set, ask Google which Flash-Lite model this key can use (newest stable first).
+async function pickModel() {
+  const r = await fetch("https://generativelanguage.googleapis.com/v1beta/models?pageSize=200", { headers: { "x-goog-api-key": GEM_KEY }, signal: AbortSignal.timeout(20000) });
+  if (!r.ok) throw new Error("could not list Gemini models, HTTP " + r.status + " (check the key)");
+  const ms = ((await r.json()).models || []).filter(m => (m.supportedGenerationMethods || []).includes("generateContent") && /flash-lite/i.test(m.name));
+  const ver = m => +((m.name.match(/gemini-(\d+(?:\.\d+)?)/) || [])[1] || 0);
+  ms.sort((a, b) => (/preview|exp/i.test(a.name) - /preview|exp/i.test(b.name)) || ver(b) - ver(a));
+  if (!ms.length) throw new Error("no Flash-Lite model available to this key");
+  return ms[0].name.replace(/^models\//, "");
+}
 async function gemini(prompt) {
   const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${GEM_MODEL}:generateContent`, {
     method: "POST", headers: { "x-goog-api-key": GEM_KEY, "content-type": "application/json" }, signal: AbortSignal.timeout(40000),
@@ -159,10 +170,11 @@ try {
     await q("UPDATE editions SET status=?,published_at=? WHERE id=?", [ranked.length ? "published" : "empty", iso(), eid]);
   }
   if (GEM_KEY) {
+    let paused = "";
+    if (!GEM_MODEL) { try { GEM_MODEL = await pickModel(); console.log("AI model:", GEM_MODEL); } catch (e) { paused = e.message; } }
     const eid2 = `${new Date(Date.now() + 5.5 * 3600e3).toISOString().slice(0, 10)}_${(h => h < 10 ? "m" : h < 16 ? "a" : "e")(new Date(Date.now() + 5.5 * 3600e3).getUTCHours())}`;
     const todo = await q("SELECT g.id,g.uncertainty_notes,g.claims_json FROM edition_stories es JOIN story_groups g ON g.id=es.group_id WHERE es.edition_id=? AND g.ai_generated=0 AND IFNULL(g.claims_json,'') NOT LIKE '%\"ai_attempts\":2%' ORDER BY es.rank LIMIT ?", [eid2, MAX_AI]);
-    let paused = "";
-    for (const t of todo) {
+    for (const t of paused ? [] : todo) {
       const arts = await q("SELECT a.id,s.name AS source,a.title,a.snippet FROM articles a JOIN sources s ON s.id=a.source_id WHERE a.group_id=? ORDER BY a.published_at LIMIT 6", [t.id]);
       const ids = new Set(arts.map(a => a.id)); let done = false, why = "";
       for (let n = 0; n < 2 && !done; n++) {
