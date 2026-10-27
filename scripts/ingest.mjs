@@ -56,6 +56,30 @@ const pickTopic = (t, geo, hint) => { for (const [k, re] of TOPIC) if (re.test(t
 const tokens = t => new Set(t.toLowerCase().replace(/[^a-z0-9 ]/g, " ").split(/\s+/).filter(w => w.length > 3));
 const jac = (a, b) => { let i = 0; for (const x of a) if (b.has(x)) i++; return i / (a.size + b.size - i || 1); };
 
+// ---- optional AI summaries (Gemini free tier). Off unless GEMINI_API_KEY is set. ----
+const GEM_KEY = process.env.GEMINI_API_KEY, GEM_MODEL = process.env.GEMINI_MODEL || "gemini-2.5-flash-lite", MAX_AI = +(process.env.MAX_AI_PER_RUN || 15);
+async function gemini(prompt) {
+  const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${GEM_MODEL}:generateContent`, {
+    method: "POST", headers: { "x-goog-api-key": GEM_KEY, "content-type": "application/json" }, signal: AbortSignal.timeout(40000),
+    body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }], generationConfig: { responseMimeType: "application/json", temperature: 0.2, maxOutputTokens: 900 } }) });
+  if (r.status === 429 || r.status === 403) throw Object.assign(new Error("quota or permission HTTP " + r.status), { stop: true });
+  if (r.status === 400 || r.status === 404) throw Object.assign(new Error("bad request HTTP " + r.status + " - check GEMINI_MODEL / key"), { stop: true });
+  if (!r.ok) throw new Error("Gemini HTTP " + r.status);
+  const j = await r.json();
+  return (j.candidates?.[0]?.content?.parts || []).map(p => p.text || "").join("");
+}
+const PROMPT = arts => `You summarise Indian and world news for exam revision. Use ONLY the sources below. Do not add facts, names, numbers or dates that are not in them. Do not predict. If the sources are too thin, say so.
+Attribute allegations to who made them. If sources disagree, say so.
+Return JSON only: {"summary": string (2-3 plain sentences, max 500 chars), "why_it_matters": string or null (1-2 sentences of general significance supported by the sources, else null), "what_to_watch": string or null (only if a next step is stated in the sources, else null), "uncertainty_notes": string or null, "key_claims": [{"claim": string, "source_ids": [ids taken from the sources below]}]}
+SOURCES: ${JSON.stringify(arts)}`;
+export function validate(o, ids) {
+  if (!o || typeof o.summary !== "string" || o.summary.length < 20 || o.summary.length > 700) return "bad summary";
+  if (!Array.isArray(o.key_claims) || !o.key_claims.length) return "no claims";
+  for (const c of o.key_claims) if (!c || !c.claim || !Array.isArray(c.source_ids) || !c.source_ids.length || !c.source_ids.every(i => ids.has(i))) return "claim without a valid source id";
+  for (const k of ["why_it_matters", "what_to_watch", "uncertainty_notes"]) if (o[k] != null && (typeof o[k] !== "string" || o[k].length > 400)) return "bad " + k;
+  return null;
+}
+
 // ---- main ----
 const started = iso();
 const run = (await q("INSERT INTO job_runs(started_at,status) VALUES(?,?) RETURNING id", [started, "running"]))[0].id;
@@ -115,7 +139,7 @@ try {
     let imp = 2 + (primary ? 1 : 0) + (srcs.size >= 2 ? 1 : 0) + (srcs.size >= 3 ? 0.5 : 0) + (BUMP.test(text) ? 0.5 : 0); const routine = ROUTINE.test(text) && srcs.size < 2; if (routine) imp -= 1; imp = Math.min(5, Math.max(0, imp));
     const reason = [primary && "official source", srcs.size >= 2 && `reported by ${srcs.size} sources`, BUMP.test(text) && "key institution or policy named", routine && "routine release (ranked lower)"].filter(Boolean).join("; ") || "single report";
     const note = ev === "confirmed" ? "Based on an official announcement; not independently verified by this app." : ev === "allegation" ? "Contains allegations or disputed claims; see attributed sources." : "Based on available reports; details may change.";
-    await q(`UPDATE story_groups SET headline=?,summary=?,topic=?,geography=?,state=?,exam_tags='[]',importance=?,importance_reason=?,evidence_status=?,uncertainty_notes=?,event_date=?,updated_at=?,ai_generated=0 WHERE id=?`,
+    await q(`UPDATE story_groups SET headline=?,summary=?,topic=?,geography=?,state=?,exam_tags='[]',importance=?,importance_reason=?,evidence_status=?,uncertainty_notes=?,event_date=?,updated_at=?,ai_generated=0,why_it_matters=NULL,what_to_watch=NULL,claims_json=NULL WHERE id=?`,
       [head.title, (head.snippet || "").slice(0, 240) || null, topic, head.geography, state, imp, reason, ev, note, head.published_at ? head.published_at.slice(0, 10) : null, iso(), gid]);
     if (imp >= MIN_IMPORTANCE) ranked.push({ gid, imp, isNew: meta.isNew });
   }
@@ -133,6 +157,30 @@ try {
     await q("UPDATE edition_stories SET rank=(SELECT x.r FROM (SELECT es.group_id gid, ROW_NUMBER() OVER (ORDER BY g.importance DESC, g.updated_at DESC) r FROM edition_stories es JOIN story_groups g ON g.id=es.group_id WHERE es.edition_id=?1) x WHERE x.gid=edition_stories.group_id) WHERE edition_id=?1", [eid]);
     await q("DELETE FROM edition_stories WHERE edition_id=? AND rank>?", [eid, MAX_STORIES]);
     await q("UPDATE editions SET status=?,published_at=? WHERE id=?", [ranked.length ? "published" : "empty", iso(), eid]);
+  }
+  if (GEM_KEY) {
+    const eid2 = `${new Date(Date.now() + 5.5 * 3600e3).toISOString().slice(0, 10)}_${(h => h < 10 ? "m" : h < 16 ? "a" : "e")(new Date(Date.now() + 5.5 * 3600e3).getUTCHours())}`;
+    const todo = await q("SELECT g.id,g.uncertainty_notes,g.claims_json FROM edition_stories es JOIN story_groups g ON g.id=es.group_id WHERE es.edition_id=? AND g.ai_generated=0 AND IFNULL(g.claims_json,'') NOT LIKE '%\"ai_attempts\":2%' ORDER BY es.rank LIMIT ?", [eid2, MAX_AI]);
+    let paused = "";
+    for (const t of todo) {
+      const arts = await q("SELECT a.id,s.name AS source,a.title,a.snippet FROM articles a JOIN sources s ON s.id=a.source_id WHERE a.group_id=? ORDER BY a.published_at LIMIT 6", [t.id]);
+      const ids = new Set(arts.map(a => a.id)); let done = false, why = "";
+      for (let n = 0; n < 2 && !done; n++) {
+        try {
+          const o = JSON.parse(await gemini(PROMPT(arts))); why = validate(o, ids);
+          if (!why) {
+            const note = [t.uncertainty_notes, o.uncertainty_notes].filter(Boolean).join(" ");
+            await q("UPDATE story_groups SET summary=?,why_it_matters=?,what_to_watch=?,uncertainty_notes=?,claims_json=?,ai_generated=1 WHERE id=?",
+              [o.summary, o.why_it_matters || null, o.what_to_watch || null, note, JSON.stringify(o.key_claims), t.id]); done = true;
+          }
+        } catch (e) { why = e.message; if (e.stop) { paused = e.message; break; } }
+        await sleep(7000);
+      }
+      if (paused) break;
+      if (!done) { let prev = 0; try { prev = JSON.parse(t.claims_json || "{}").ai_attempts || 0; } catch {} await q("UPDATE story_groups SET claims_json=? WHERE id=?", [JSON.stringify({ ai_attempts: prev + 1, last: why }), t.id]); }
+      await sleep(7000);
+    }
+    if (paused) errors.push("AI paused (" + paused + "); showing sourced headlines without AI summaries");
   }
   await q("DELETE FROM source_fetches WHERE fetched_at < ?", [hoursAgo(24 * 30)]);
   await q("DELETE FROM articles WHERE retrieved_at < ?", [hoursAgo(24 * 90)]);
