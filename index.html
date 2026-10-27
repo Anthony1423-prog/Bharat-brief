@@ -89,7 +89,7 @@ h2{font-size:.95rem;text-transform:uppercase;letter-spacing:.06em;color:var(--ac
 
 <div class="banner" id="banner" role="status">Loading the latest edition…</div>
 
-<div class="tabs" role="group" aria-label="Edition"></div>
+<div class="row"><div class="tabs" role="group" aria-label="Edition"></div><label class="sr" for="day">Edition date</label><select id="day" style="width:auto"><option value="">Latest edition</option></select></div>
 <div class="meta" id="status"></div>
 
 <div class="chips" id="chips" role="group" aria-label="Choose exam"></div>
@@ -147,15 +147,19 @@ const cap=x=>({confirmed:"Confirmed",developing:"Developing",allegation:"Allegat
 const fmtIST=i=>i?new Date(i).toLocaleString("en-IN",{timeZone:"Asia/Kolkata",day:"numeric",month:"short",hour:"numeric",minute:"2-digit",hour12:true})+" IST":"n/a";
 const mapLive=j=>j.stories.map(g=>({id:g.id,ed:P.ed,live:true,topic:TOPICS[g.topic]?g.topic:"other",geo:g.geography||"",state:g.state||"",status:cap(g.evidence_status),title:g.headline,summary:g.summary||"No summary available. See the linked sources.",why:g.why_it_matters,watch:g.what_to_watch,note:g.uncertainty_notes||"",imp:g.importance||0,ai:g.ai_generated===1,rr:g.importance_reason||"single report",evd:g.event_date,upd:g.updated_at,srcs:(g.sources||[]).filter(x=>/^https?:\/\//.test(x.url)).map(x=>({n:x.source,t:x.title,u:x.url,d:fmtIST(x.published_at)}))}));
 const findS=id=>DATA.find(x=>x.id===id)||P.cache[id];
+async function loadDays(){
+ try{const r=await fetch(API+"/api/editions/dates");if(!r.ok)return;const j=await r.json();
+  $("#day").innerHTML='<option value="">Latest edition</option>'+(j.dates||[]).map(d=>`<option value="${esc(d.edition_date)}">${esc(new Date(d.edition_date+"T00:00:00+05:30").toLocaleDateString("en-IN",{day:"numeric",month:"short",year:"numeric"}))}</option>`).join("")}catch(e){}
+}
 async function load(){
  const tk=++TOK;MODE="loading";META=null;DATA=[];render();
- try{const r=await fetch(API+"/api/editions/latest?slot="+P.ed);if(!r.ok)throw 0;const j=await r.json();
+ try{const r=await fetch(API+"/api/editions/latest?slot="+P.ed+(P.day?"&date="+P.day:""));if(!r.ok)throw 0;const j=await r.json();
   if(tk!==TOK)return;if(j.edition){MODE="live";META=j;DATA=mapLive(j)}else{MODE="empty";DATA=[]}}
  catch(e){if(tk!==TOK)return;MODE="sample";DATA=SAMPLE}
  render();
 }
 // ---------- STATE ----------
-const P={exam:"general",state:"Bihar",topic:"all",imp:"0",q:"",saved:[],cache:{},theme:"auto",ed:null};
+const P={day:"",exam:"general",state:"Bihar",topic:"all",imp:"0",q:"",saved:[],cache:{},theme:"auto",ed:null};
 const KEY="bharatbrief.v1";
 try{Object.assign(P,JSON.parse(localStorage.getItem(KEY)||"{}"))}catch(e){}
 const store=()=>{try{localStorage.setItem(KEY,JSON.stringify(P))}catch(e){}};
@@ -183,18 +187,19 @@ function init(){
  $("#state").innerHTML=STATES.map(s=>`<option${s===P.state?" selected":""}>${esc(s)}</option>`).join("");
  opts($("#topic"),{all:"All topics",...TOPICS},P.topic);
  $("#imp").value=P.imp;$("#q").value=P.q;
- P.ed=P.ed||defaultEd();
+ P.ed=P.ed||defaultEd();P.day="";
  const t=$(".tabs");t.innerHTML=EDITIONS.map(e=>`<button data-k="${e.k}" aria-pressed="false">${e.n} · ${e.t}</button>`).join("");
  t.onclick=e=>{const b=e.target.closest("button");if(b){P.ed=b.dataset.k;store();load()}};
  [["exam","exam"],["state","state"],["topic","topic"],["imp","imp"]].forEach(([id,k])=>$("#"+id).onchange=e=>{P[k]=e.target.value;store();render()});
  $("#q").oninput=e=>{P.q=e.target.value;render()};
+ $("#day").onchange=e=>{P.day=e.target.value;load()};
  $("#savedOnly").onchange=render;
  $("#clear").onclick=()=>{if(confirm("Clear saved stories and preferences on this device?")){try{localStorage.removeItem(KEY)}catch(e){}location.reload()}};
  $("#theme").onclick=()=>{P.theme={auto:"light",light:"dark",dark:"auto"}[P.theme];store();applyTheme()};
  $("#list").onclick=e=>{const b=e.target.closest("[data-a]");if(!b)return;const id=b.dataset.id;if(b.dataset.a==="open")openStory(id);if(b.dataset.a==="save")toggle(id);if(b.dataset.a==="share")share(id)};
  $("#top").onclick=e=>{const a=e.target.closest("a");if(a)openStory(a.dataset.id)};
  $("#dclose").onclick=()=>$("#dlg").close();
- applyTheme();load();setInterval(()=>$("#now").textContent=istNow(),30000);
+ applyTheme();load();loadDays();setInterval(()=>$("#now").textContent=istNow(),30000);
 }
 function applyTheme(){const r=document.documentElement;P.theme==="auto"?r.removeAttribute("data-theme"):r.setAttribute("data-theme",P.theme);$("#theme").textContent="Theme: "+P.theme}
 function toggle(id){const i=P.saved.indexOf(id);if(i>=0){P.saved.splice(i,1);delete P.cache[id]}else{P.saved.push(id);const s=findS(id);if(s)P.cache[id]=s}store();render();if($("#dlg").open)fillSave(id)}
@@ -211,7 +216,7 @@ function render(){
  document.querySelectorAll(".tabs button").forEach(b=>b.setAttribute("aria-pressed",b.dataset.k===P.ed));
  const ed=EDITIONS.find(e=>e.k===P.ed);
  $("#status").textContent=MODE==="live"?ed.n+" edition · "+META.edition.edition_date+" · published "+fmtIST(META.edition.published_at)+(META.job?" · "+META.job.sources_ok+" of "+(META.job.sources_ok+META.job.sources_failed)+" sources read in last run":""):MODE==="sample"?ed.n+" edition · sample stories":MODE==="loading"?"Loading…":ed.n+" edition · not published yet";
- $("#banner").innerHTML=MODE==="live"?"<strong>Live edition.</strong> Headlines and links are collected automatically from the listed sources and are not independently verified. Read the originals.":MODE==="sample"?"<strong>Live data unavailable. Showing sample stories only, not real news.</strong>":MODE==="empty"?"<strong>No edition has been published for this slot yet.</strong> Editions appear after each scheduled run.":"Loading the latest edition…";
+ $("#banner").innerHTML=MODE==="live"&&P.day?"<strong>Archived edition.</strong> Showing what was published on this date; later developments are not included. Not independently verified.":MODE==="live"?"<strong>Live edition.</strong> Headlines and links are collected automatically from the listed sources and are not independently verified. Read the originals.":MODE==="sample"?"<strong>Live data unavailable. Showing sample stories only, not real news.</strong>":MODE==="empty"?"<strong>No edition has been published for this slot yet.</strong> Editions appear after each scheduled run.":"Loading the latest edition…";
  const so=$("#savedOnly").checked,q=P.q.trim().toLowerCase();
  let L=(so?Object.values(P.cache):DATA).filter(s=>so||s.ed===P.ed).map(s=>({...s,r:score(s)}))
   .filter(s=>(P.topic==="all"||s.topic===P.topic)&&s.r.total>=+P.imp&&(!q||(s.title+s.summary).toLowerCase().includes(q)))
