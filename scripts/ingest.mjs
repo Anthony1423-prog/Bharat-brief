@@ -127,10 +127,11 @@ try {
   if (prior && prior.status === "published" && !ranked.length) errors.push("edition already published; nothing new to add");
   else {
     await q(`INSERT INTO editions(id,edition_date,slot,status,is_sample,started_at) VALUES(?,?,?,?,0,?) ON CONFLICT(id) DO UPDATE SET status='running',started_at=excluded.started_at`, [eid, date, slot, "running", started]);
-    await q("DELETE FROM edition_stories WHERE edition_id=?", [eid]);
-    let rank = 1;
-    for (const r of ranked.slice(0, MAX_STORIES)) await q("INSERT INTO edition_stories(edition_id,group_id,rank,is_update,update_note) VALUES(?,?,?,?,?)",
-      [eid, r.gid, rank++, r.isNew ? 0 : 1, r.isNew ? null : "New reports added since the last edition"]);
+    // Merge, never replace: a re-run of the same slot adds stories and re-ranks, so earlier stories are not lost.
+    for (const r of ranked.slice(0, MAX_STORIES)) await q("INSERT OR IGNORE INTO edition_stories(edition_id,group_id,rank,is_update,update_note) VALUES(?,?,99,?,?)",
+      [eid, r.gid, r.isNew ? 0 : 1, r.isNew ? null : "New reports added since the last edition"]);
+    await q("UPDATE edition_stories SET rank=(SELECT x.r FROM (SELECT es.group_id gid, ROW_NUMBER() OVER (ORDER BY g.importance DESC, g.updated_at DESC) r FROM edition_stories es JOIN story_groups g ON g.id=es.group_id WHERE es.edition_id=?1) x WHERE x.gid=edition_stories.group_id) WHERE edition_id=?1", [eid]);
+    await q("DELETE FROM edition_stories WHERE edition_id=? AND rank>?", [eid, MAX_STORIES]);
     await q("UPDATE editions SET status=?,published_at=? WHERE id=?", [ranked.length ? "published" : "empty", iso(), eid]);
   }
   await q("DELETE FROM source_fetches WHERE fetched_at < ?", [hoursAgo(24 * 30)]);
