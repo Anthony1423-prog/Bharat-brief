@@ -123,11 +123,26 @@ h2{font-family:system-ui,sans-serif;text-transform:none;letter-spacing:-.02em;co
 .empty{padding:38px 12px}
 @media(max-width:600px){.wrap{padding:12px}.reader-card{min-height:380px}.reader-nav .btn{padding:10px 14px}}
 </style>
+<style>
+/* Original Bharat Brief doodles and topic marks */
+header.top{position:relative;overflow:hidden}
+.brand-doodle{width:150px;height:106px;flex:none;align-self:center;color:#d6eff4;opacity:.92;filter:drop-shadow(0 3px 4px #0a283344)}
+.brand-doodle svg{width:100%;height:100%}
+.doodle-line{fill:none;stroke:currentColor;stroke-width:2.4;stroke-linecap:round;stroke-linejoin:round}
+.doodle-fill{fill:currentColor;opacity:.16;stroke:currentColor;stroke-width:2}
+.topic-icon{width:19px;height:19px;display:inline-block;vertical-align:middle;flex:none;color:var(--acc)}
+.topic-icon svg{display:block;width:100%;height:100%;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.topic-tag{display:inline-flex;align-items:center;gap:6px}
+.topic-heading{display:flex;align-items:center;gap:9px}
+@media(max-width:700px){.brand-doodle{width:88px;height:76px;margin-left:auto}.brand-doodle svg{max-height:76px}}
+@media(max-width:480px){.brand-doodle{display:none}}
+</style>
 </head>
 <body>
 <div class="wrap">
 <header class="top">
  <div><h1>Bharat Brief</h1><p>India &amp; world current affairs, sourced and sorted for exam revision.</p></div>
+ <div class="brand-doodle" aria-hidden="true"><svg viewBox="0 0 180 130"><path class="doodle-line" d="M32 30c0-5 4-9 9-9h73l24 23v62c0 5-4 9-9 9H41c-5 0-9-4-9-9z"/><path class="doodle-line" d="M114 21v18c0 3 2 5 5 5h19M48 55h66M48 68h52M48 81h58"/><path class="doodle-line" d="m120 83 24-30 9 7-24 30-13 7zM145 53l5-6 9 7-5 6"/><path class="doodle-fill" d="m24 46 3 8 8 3-8 3-3 8-3-8-8-3 8-3zM151 20l2 6 6 2-6 2-2 6-2-6-6-2 6-2z"/><path class="doodle-line" d="M29 100c-8 1-12 5-14 11M156 93c7 1 11 5 13 11"/></svg></div>
  <div class="clock" aria-live="off"><div id="now"></div><div>Intended editions: 7:00 AM · 1:00 PM · 7:00 PM IST</div>
   <button class="btn" id="theme" style="margin-top:6px">Theme: auto</button></div>
 </header>
@@ -254,7 +269,21 @@ function init(){
 function applyTheme(){const r=document.documentElement;P.theme==="auto"?r.removeAttribute("data-theme"):r.setAttribute("data-theme",P.theme);$("#theme").textContent="Theme: "+P.theme}
 function toggle(id){const i=P.saved.indexOf(id);if(i>=0){P.saved.splice(i,1);delete P.cache[id]}else{P.saved.push(id);const s=findS(id);if(s)P.cache[id]=s}store();render();if($("#dlg").open)fillSave(id)}
 async function share(id){const s=findS(id),txt=s.title+(s.live?"":" (sample content)");try{if(navigator.share)await navigator.share({title:s.title,text:txt,url:location.href});else{await navigator.clipboard.writeText(txt+" "+location.href);alert("Link copied.")}}catch(e){}}
-function card(s){const r=s.r;return`<article class="card ${r.label}"><div class="tags"><span class="tag">${esc(TOPICS[s.topic])}</span><span class="tag ${r.label}">Importance: ${r.label}</span><span class="tag ev ${s.status}">${s.status}</span>${s.ai?'<span class="tag">AI summary</span>':""}</div>
+function topicIcon(k){
+ const d={
+  polity:'<path d="M3 9h18L12 4 3 9Z"/><path d="M5 20h14M4 22h16M6 10v9m4-9v9m4-9v9m4-9v9"/>',
+  econ:'<path d="M4 19V5m0 14h17"/><path d="m7 15 4-4 3 2 6-7"/><path d="M16 6h4v4"/>',
+  states:'<path d="M19 10c0 5-7 11-7 11S5 15 5 10a7 7 0 1 1 14 0Z"/><circle cx="12" cy="10" r="2.2"/>',
+  sec:'<path d="M12 3 20 6v5c0 5-3.6 8.2-8 10-4.4-1.8-8-5-8-10V6l8-3Z"/><path d="m9 12 2 2 4-4"/>',
+  elec:'<path d="M5 4h14v17H5z"/><path d="M8 8h8m-8 4h2m4 0h2m-8 4h8"/>',
+  world:'<circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c3 3 3 15 0 18M12 3c-3 3-3 15 0 18"/>',
+  env:'<path d="M20 4C11 4 5 7 5 13c0 4 3 6 6 6 6 0 9-6 9-15Z"/><path d="M4 21c3-6 7-9 12-12"/>',
+  sci:'<circle cx="12" cy="12" r="2"/><ellipse cx="12" cy="12" rx="9" ry="4"/><ellipse cx="12" cy="12" rx="9" ry="4" transform="rotate(60 12 12)"/><ellipse cx="12" cy="12" rx="9" ry="4" transform="rotate(120 12 12)"/>',
+  other:'<path d="M5 4h14v17H5z"/><path d="M8 8h8M8 11h8M8 14h5m-5 3h8"/>'
+ }[k]||'<circle cx="12" cy="12" r="8"/><path d="M12 11v5m0-8h.01"/>';
+ return '<span class="topic-icon" aria-hidden="true"><svg viewBox="0 0 24 24">'+d+'</svg></span>';
+}
+function card(s){const r=s.r;return`<article class="card ${r.label}"><div class="tags"><span class="tag topic-tag">${topicIcon(s.topic)}${esc(TOPICS[s.topic])}</span><span class="tag ${r.label}">Importance: ${r.label}</span><span class="tag ev ${s.status}">${s.status}</span>${s.ai?'<span class="tag">AI summary</span>':""}</div>
 <h3>${esc(s.title)}</h3><p>${esc(s.summary)}</p>
 <div class="actions"><button class="btn" data-a="open" data-id="${s.id}">Details &amp; sources</button><button class="btn" data-a="save" data-id="${s.id}" aria-pressed="${P.saved.includes(s.id)}">${P.saved.includes(s.id)?"★ Saved":"☆ Save"}</button><button class="btn" data-a="share" data-id="${s.id}">Share</button></div></article>`}
 function render(){
@@ -288,7 +317,7 @@ function render(){
    return;
  }
  if(!L.length){if(P.view==="revise"){$("#list").innerHTML=`<div class="empty">Save stories from the feed, then come back here to revise them.</div>`;return} $("#list").innerHTML=`<div class="empty">${so?"No saved stories yet.":MODE==="loading"?"Loading edition…":MODE==="empty"?"Nothing published for this slot yet.":"No major update matches these filters in this edition."}</div>`;return}
- $("#list").innerHTML=Object.keys(TOPICS).filter(k=>L.some(s=>s.topic===k)).map(k=>`<h2>${esc(TOPICS[k])}</h2><div class="cards">${L.filter(s=>s.topic===k).map(card).join("")}</div>`).join("");
+ $("#list").innerHTML=Object.keys(TOPICS).filter(k=>L.some(s=>s.topic===k)).map(k=>`<h2 class="topic-heading">${topicIcon(k)}${esc(TOPICS[k])}</h2><div class="cards">${L.filter(s=>s.topic===k).map(card).join("")}</div>`).join("");
 }
 function fillSave(id){const b=$("#dsave");b.textContent=P.saved.includes(id)?"★ Saved":"☆ Save";b.onclick=()=>toggle(id)}
 function openStory(id){
